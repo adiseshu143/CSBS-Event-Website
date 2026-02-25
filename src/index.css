@@ -1,0 +1,66 @@
+/* ===== Global Reset & Base Styles ===== */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Font Families */
+  --font-heading: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Color Palette */
+  --primary: #2e3190;
+  --primary-dark: #1f1f5a;
+  --primary-light: #4a4db8;
+  --accent: #eb4d28;
+  --accent-dark: #d43f1f;
+  --accent-light: #f56640;
+  --bg-main: #ffffff;
+  --bg-secondary: #f9f9f9;
+  --bg-tertiary: #f5f5f5;
+  --card-bg: #ffffff;
+  --text-primary: #2e3190;
+  --text-secondary: #5a5a6e;
+  --text-muted: #9a9aaa;
+  --border: #e8e8f0;
+  --border-focus: #2e3190;
+  --error: #e74c3c;
+  --error-bg: #fff5f3;
+  --error-border: #f1ccc5;
+  --success: #27ae60;
+  --success-bg: #f1f9f5;
+  --success-border: #d4efdf;
+  --shadow-sm: 0 1px 2px rgba(46, 49, 144, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(46, 49, 144, 0.1), 0 2px 4px -2px rgba(46, 49, 144, 0.06);
+  --shadow-lg: 0 10px 25px -3px rgba(46, 49, 144, 0.12), 0 4px 6px -4px rgba(46, 49, 144, 0.06);
+  --shadow-xl: 0 20px 50px -12px rgba(46, 49, 144, 0.15);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --transition: 0.2s ease;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

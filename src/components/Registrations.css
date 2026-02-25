@@ -1,0 +1,438 @@
+/* ================================================
+   Registrations Section — Styles
+   ================================================ */
+
+/* --- Toolbar (back + refresh) --- */
+.reg-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.reg-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #2e3190;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.reg-back-btn:hover {
+  background: rgba(46, 49, 144, 0.08);
+}
+
+.reg-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reg-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(46, 49, 144, 0.08);
+  border: 1px solid rgba(46, 49, 144, 0.15);
+  color: #2e3190;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.reg-refresh-btn:hover:not(:disabled) {
+  background: rgba(46, 49, 144, 0.14);
+  border-color: rgba(46, 49, 144, 0.3);
+}
+
+.reg-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.reg-refresh-spinning {
+  animation: reg-spin 0.7s linear infinite;
+}
+
+.reg-refresh-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e3190;
+  animation: reg-pulse 1s ease-in-out infinite;
+}
+
+@keyframes reg-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* --- Section wrapper --- */
+.reg-section {
+  margin-top: 0;
+}
+
+.reg-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.reg-section-title {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: #2e3190;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.reg-count-badge {
+  background: rgba(46, 49, 144, 0.1);
+  color: #2e3190;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+/* --- Grid --- */
+.reg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1.5rem;
+}
+
+/* --- Card --- */
+.reg-card {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 6px 6px 0px rgba(183, 28, 28, 0.45),
+              0 4px 24px rgba(46, 49, 144, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.reg-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 8px 10px 0px rgba(183, 28, 28, 0.55),
+              0 8px 32px rgba(46, 49, 144, 0.12);
+}
+
+/* --- Card Top --- */
+.reg-card-top {
+  padding: 1.4rem 1.5rem 1rem;
+}
+
+.reg-card-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 0.3rem;
+}
+
+.reg-team-name {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: #1f2937;
+  margin: 0;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.reg-size-badge {
+  flex-shrink: 0;
+  background: #eb4d28;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.reg-event-name {
+  display: block;
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+/* --- Meta Info --- */
+.reg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+}
+
+.reg-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reg-meta-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.reg-meta-value {
+  font-size: 0.78rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.reg-id-value {
+  color: #2e3190;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+}
+
+.reg-ticket-value {
+  color: #eb4d28;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+}
+
+/* --- Divider --- */
+.reg-card-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
+  margin: 0 1.5rem;
+}
+
+/* --- Members --- */
+.reg-card-members {
+  padding: 1rem 1.5rem 1.4rem;
+}
+
+.reg-members-title {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 0.95rem;
+  letter-spacing: 1.5px;
+  color: #2e3190;
+  margin: 0 0 0.8rem;
+  text-transform: uppercase;
+}
+
+.reg-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reg-member-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.75rem;
+  background: #f8f9fa;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.reg-member-row:hover {
+  background: #f0f1f8;
+}
+
+.reg-member-num {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #2e3190;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.reg-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reg-member-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.reg-member-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.reg-leader-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #eb4d28;
+  background: rgba(235, 77, 40, 0.1);
+  padding: 1px 7px;
+  border-radius: 4px;
+}
+
+.reg-member-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+}
+
+.reg-member-detail {
+  font-size: 0.72rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* --- Loading --- */
+.reg-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 1rem;
+  color: #6b7280;
+}
+
+.reg-loading p {
+  margin: 1rem 0 0;
+  font-size: 0.88rem;
+}
+
+.reg-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(46, 49, 144, 0.15);
+  border-top-color: #2e3190;
+  border-radius: 50%;
+  animation: reg-spin 0.7s linear infinite;
+}
+
+@keyframes reg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Error --- */
+.reg-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.reg-error-icon {
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+}
+
+.reg-error p {
+  margin: 0 0 1rem;
+  color: #991b1b;
+  font-size: 0.88rem;
+}
+
+.reg-retry-btn {
+  background: #2e3190;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.3rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  transition: background 0.2s ease;
+}
+
+.reg-retry-btn:hover {
+  background: #23266e;
+}
+
+/* --- Empty --- */
+.reg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 1rem;
+  text-align: center;
+}
+
+.reg-empty-icon {
+  font-size: 2.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.reg-empty p {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.reg-empty-sub {
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+/* --- Responsive --- */
+@media (max-width: 480px) {
+  .reg-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reg-card-top {
+    padding: 1.2rem 1.2rem 0.8rem;
+  }
+
+  .reg-card-members {
+    padding: 0.8rem 1.2rem 1.2rem;
+  }
+
+  .reg-card-divider {
+    margin: 0 1.2rem;
+  }
+
+  .reg-member-detail {
+    max-width: 180px;
+  }
+
+  .reg-meta {
+    gap: 0.5rem 0.8rem;
+  }
+}

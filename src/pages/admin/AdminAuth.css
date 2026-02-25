@@ -1,0 +1,525 @@
+/* ================================================
+   Admin Auth — Styles
+   Matches the EventRegistration design system exactly:
+   same card, inputs, buttons, shadows, and fonts.
+   ================================================ */
+
+/* ===== Page Layout (mirrors .registration-page) ===== */
+.admin-auth-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 2rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ===== Header (mirrors .event-header) ===== */
+.admin-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 640px;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.375rem 1rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+}
+
+.admin-badge .pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: #a5f3fc;
+  border-radius: 50%;
+  animation: adminPulse 2s ease-in-out infinite;
+}
+
+@keyframes adminPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+.admin-header h1 {
+  font-size: 3rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.admin-header p {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* ===== Step Banner (mirrors .slots-banner) ===== */
+.admin-steps-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--card-bg);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.5rem;
+  margin-bottom: 2rem;
+  max-width: 640px;
+  width: 100%;
+  box-shadow: 8px 8px 0px rgba(183, 28, 28, 0.548), 0 10px 30px rgba(46, 49, 144, 0.1);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.admin-steps-banner:hover {
+  transform: translateY(-4px);
+  box-shadow: 8px 12px 0px rgba(183, 28, 28, 0.65), 0 15px 40px rgba(46, 49, 144, 0.15);
+}
+
+/* Step indicators inside the banner */
+.admin-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  max-width: 320px;
+}
+
+.admin-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.45;
+  transition: opacity 0.25s ease;
+}
+
+.admin-step.active,
+.admin-step.done {
+  opacity: 1;
+}
+
+.admin-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.25s ease;
+}
+
+.admin-step.active .admin-step-number {
+  background: var(--accent);
+}
+
+.admin-step.done .admin-step-number {
+  background: var(--success);
+}
+
+.admin-step-label {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.admin-step.active .admin-step-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.admin-step.done .admin-step-label {
+  color: var(--success);
+}
+
+.admin-step-line {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  margin: 0 10px;
+  overflow: hidden;
+}
+
+.admin-step-line-fill {
+  width: 0;
+  height: 100%;
+  background: var(--success);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.admin-step-line-fill.filled {
+  width: 100%;
+}
+
+/* ===== Card (mirrors .registration-card) ===== */
+.admin-auth-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: 8px 8px 0px rgba(183, 28, 28, 0.548), 0 10px 30px rgba(46, 49, 144, 0.1);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 640px;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.admin-auth-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 8px 14px 0px rgba(183, 28, 28, 0.65), 0 20px 50px rgba(46, 49, 144, 0.15);
+}
+
+/* Card title & subtitle (mirrors .card-title / .card-subtitle) */
+.admin-card-title {
+  font-size: 1.625rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.03em;
+}
+
+.admin-card-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+/* ===== Section Labels (mirrors .section-label) ===== */
+.admin-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-section-label .section-icon {
+  font-size: 1.2rem;
+}
+
+.admin-section-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: -0.5rem 0 1.5rem;
+  line-height: 1.6;
+}
+
+.admin-section-desc strong {
+  color: var(--primary);
+}
+
+/* ===== Form layout ===== */
+.admin-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Form Groups (mirrors .form-group) ===== */
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.admin-field label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ===== Inputs (mirrors .form-input) ===== */
+.admin-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.admin-input-icon {
+  position: absolute;
+  left: 0.875rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color var(--transition);
+}
+
+.admin-input-wrapper:focus-within .admin-input-icon {
+  color: var(--primary);
+}
+
+.admin-input {
+  width: 100%;
+  padding: 0.7rem 0.875rem 0.7rem 2.75rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: #fafbfc;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  outline: none;
+  appearance: none;
+}
+
+.admin-input::placeholder {
+  color: var(--text-muted);
+}
+
+.admin-input:hover {
+  border-color: #c7d2fe;
+  background: #fff;
+}
+
+.admin-input:focus {
+  border-color: var(--border-focus);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.admin-input:read-only {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.admin-input:read-only:hover {
+  border-color: var(--border);
+}
+
+.admin-input-code {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+
+/* Password visibility toggle */
+.admin-toggle-pass {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition);
+}
+
+.admin-toggle-pass:hover {
+  color: var(--primary);
+}
+
+/* ===== Alerts (mirrors .alert) ===== */
+.admin-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  animation: adminFadeIn 0.3s ease;
+  box-shadow: 4px 4px 0px rgba(46, 49, 144, 0.08);
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.admin-alert-success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: #065f46;
+}
+
+.admin-alert-error {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: #991b1b;
+}
+
+.admin-alert-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ===== Submit Button (mirrors .submit-btn) ===== */
+.admin-btn {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 4px 4px 0px rgba(235, 77, 40, 0.25);
+  margin-top: 0.5rem;
+}
+
+.admin-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-dark);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.admin-btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.admin-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 6px 6px 0px rgba(235, 77, 40, 0.3);
+}
+
+.admin-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.admin-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.admin-btn span,
+.admin-btn .admin-spinner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Loading Spinner (mirrors .spinner) */
+.admin-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: adminSpin 0.7s linear infinite;
+}
+
+@keyframes adminSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Back link */
+.admin-link-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-family: inherit;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0;
+  transition: color var(--transition);
+  text-align: center;
+}
+
+.admin-link-btn:hover {
+  color: var(--primary);
+}
+
+/* Row of link buttons side-by-side */
+.admin-link-row {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+}
+.admin-link-row .admin-link-btn {
+  width: auto;
+  margin-top: 0;
+}
+
+/* ===== Footer (mirrors .registration-footer) ===== */
+.admin-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 640px;
+}
+
+/* ===== Responsive (mirrors registration breakpoints) ===== */
+@media (max-width: 640px) {
+  .admin-auth-page {
+    padding: 1.25rem 0.75rem 2rem;
+  }
+
+  .admin-header h1 {
+    font-size: 1.65rem;
+  }
+
+  .admin-header p {
+    font-size: 0.925rem;
+  }
+
+  .admin-auth-card {
+    padding: 1.5rem 1.25rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .admin-steps-banner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .admin-steps {
+    max-width: 260px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .admin-auth-card {
+    padding: 2rem;
+  }
+}

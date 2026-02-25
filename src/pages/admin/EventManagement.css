@@ -1,0 +1,374 @@
+/* ===================================================================
+   EventManagement.css — Admin event CRUD styles
+   =================================================================== */
+
+/* ── Layout ── */
+.evt-mgmt {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ── Toolbar ── */
+.evt-mgmt-toolbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.evt-mgmt-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.evt-mgmt-back:hover {
+  background: var(--border);
+}
+
+/* ── Form card ── */
+.evt-mgmt-form-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 8px 8px 0px rgba(183, 28, 28, 0.45),
+    0 10px 30px rgba(46, 49, 144, 0.1);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.evt-mgmt-form-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+  letter-spacing: 0.03em;
+}
+
+.evt-mgmt-form-error {
+  padding: 0.625rem 1rem;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.evt-mgmt-form-success {
+  padding: 0.625rem 1rem;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Fields ── */
+.evt-mgmt-field {
+  margin-bottom: 1rem;
+}
+
+.evt-mgmt-field label {
+  display: block;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.375rem;
+}
+
+.evt-required {
+  color: var(--error);
+}
+
+.evt-mgmt-input,
+.evt-mgmt-textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-main);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.evt-mgmt-input:focus,
+.evt-mgmt-textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(46, 49, 144, 0.1);
+}
+
+.evt-mgmt-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.evt-mgmt-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.evt-mgmt-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* ── Actions buttons ── */
+.evt-mgmt-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.evt-mgmt-submit {
+  padding: 0.625rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.evt-mgmt-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 49, 144, 0.3);
+}
+
+.evt-mgmt-cancel {
+  padding: 0.625rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.evt-mgmt-cancel:hover {
+  background: var(--border);
+}
+
+/* ── Events list section ── */
+.evt-mgmt-list-section {
+  margin-top: 1rem;
+}
+
+.evt-mgmt-list-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.evt-mgmt-list-header h2 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+}
+
+.evt-mgmt-count-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(46, 49, 144, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+}
+
+/* ── Empty state ── */
+.evt-mgmt-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+}
+
+.evt-mgmt-empty > span:first-child {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.evt-mgmt-empty p {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.evt-mgmt-empty-sub {
+  font-size: 0.85rem;
+}
+
+/* ── Card grid ── */
+.evt-mgmt-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.evt-mgmt-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 6px 6px 0px rgba(183, 28, 28, 0.45),
+    0 4px 15px rgba(46, 49, 144, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.evt-mgmt-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 6px 10px 0px rgba(183, 28, 28, 0.55),
+    0 8px 25px rgba(46, 49, 144, 0.12);
+}
+
+.evt-mgmt-card-inactive {
+  opacity: 0.6;
+}
+
+.evt-mgmt-card-top {
+  padding: 1.5rem;
+}
+
+.evt-mgmt-card-status {
+  margin-bottom: 0.75rem;
+}
+
+.evt-mgmt-status-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+}
+
+.evt-mgmt-status-badge.active {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.evt-mgmt-status-badge.inactive {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.evt-mgmt-card-name {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  color: var(--text-primary);
+  margin-bottom: 0.375rem;
+  letter-spacing: 0.02em;
+}
+
+.evt-mgmt-card-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.evt-mgmt-card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ── Card action bar ── */
+.evt-mgmt-card-actions {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.evt-mgmt-action-btn {
+  flex: 1;
+  padding: 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  color: var(--text-secondary);
+}
+
+.evt-mgmt-action-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.evt-mgmt-action-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.evt-mgmt-action-btn.evt-copy:hover {
+  color: var(--primary);
+}
+
+.evt-mgmt-action-btn.evt-toggle:hover {
+  color: #f59e0b;
+}
+
+.evt-mgmt-action-btn.evt-edit:hover {
+  color: var(--primary);
+}
+
+.evt-mgmt-action-btn.evt-delete:hover {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .evt-mgmt-row {
+    grid-template-columns: 1fr;
+  }
+
+  .evt-mgmt-card-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .evt-mgmt-card-actions {
+    flex-wrap: wrap;
+  }
+
+  .evt-mgmt-action-btn {
+    flex: 1 0 45%;
+  }
+
+  .evt-mgmt-action-btn:not(:last-child) {
+    border-right: none;
+  }
+
+  .evt-mgmt-action-btn:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+}
