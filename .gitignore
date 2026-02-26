@@ -12,10 +12,17 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
+# Environment variables (NEVER commit with real values)
 .env
 .env.local
 .env.*.local
+.env.production.local
+
+# Credential guide files (for local reference only, don't commit)
+SECURE_GAS_CONFIG.js
+CONFIG_COPY_PASTE.txt
+CREDENTIALS_GUIDE.txt
+README_SETUP.md
 
 # Editor directories and files
 .vscode/*

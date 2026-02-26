@@ -13,12 +13,15 @@
 
 var CONFIG = {
   // ---------- Firebase Firestore ----------
-  FIREBASE_PROJECT_ID: "csbs-events-2",
-  FIREBASE_API_KEY: "AIzaSyDKeXEOVYw395TgVHmlJcc7BrrUEI9eeEs",
-  FIRESTORE_BASE_URL: "https://firestore.googleapis.com/v1/projects/csbs-events-2/databases/(default)/documents",
+  // ⚠️ REPLACE these with your actual Firebase credentials
+  // See CREDENTIALS_GUIDE.txt for how to get these values
+  FIREBASE_PROJECT_ID: "YOUR_FIREBASE_PROJECT_ID",
+  FIREBASE_API_KEY: "YOUR_FIREBASE_API_KEY",
+  FIRESTORE_BASE_URL: "https://firestore.googleapis.com/v1/projects/YOUR_FIREBASE_PROJECT_ID/databases/(default)/documents",
 
   // ---------- Google Spreadsheet (Registration) ----------
-  SPREADSHEET_ID: "1MLPZtVySd1VG74I7R1LhcsjuagDsiOpDidYr7yhLTIE",
+  // ⚠️ REPLACE with your actual Spreadsheet ID
+  SPREADSHEET_ID: "YOUR_GOOGLE_SPREADSHEET_ID",
   SHEET_NAME: "Registrations",
   MAX_TEAM_SIZE: 5,
 
@@ -33,7 +36,8 @@ var CONFIG = {
   LOCKOUT_MINUTES: 15,
 
   // ---------- Email ----------
-  EMAIL_SENDER_EMAIL: "csbs.vitb@gmail.com",
+  // ⚠️ REPLACE with your actual Gmail address
+  EMAIL_SENDER_EMAIL: "your-email@gmail.com",
   EMAIL_SENDER_NAME: "CSBS Admin Portal",
   EMAIL_SUBJECT: "Your CSBS Admin Access Code",
 
