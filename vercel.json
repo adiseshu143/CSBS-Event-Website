@@ -1,17 +1,10 @@
 {
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
   "outputDirectory": "dist",
   "framework": "vite",
-  "env": {
-    "VITE_APPS_SCRIPT_API_URL": "@vite_apps_script_api_url",
-    "VITE_EVENT_NAME": "@vite_event_name",
-    "VITE_EVENT_DATES": "@vite_event_dates",
-    "VITE_EVENT_LOCATION": "@vite_event_location"
-  },
   "rewrites": [
     {
-      "source": "/:path((?!_next/static/|_next/image/|favicon.ico).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
