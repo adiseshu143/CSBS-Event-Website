@@ -8,7 +8,7 @@ const EVENT_CONFIG = {
   title: 'STRAT-A-THON 1.0',
   description:
     'STRAT-A-THON 1.0 is a 24-hour hackathon organized by the Techie-Blazers Club of Vishnu Institute of Technology, where strategy meets innovation. Scheduled for March 4\u20135 at C Block, the event challenges teams of four to brainstorm, build, and battle it out with impactful ideas.\nIt\u2019s a high-energy platform for smart minds to collaborate, compete, and turn bold strategies into real-world solutions.',
-  totalSlots: 250,
+  totalSlots: 350,
   maxTeamSize: 4,
 };
 
