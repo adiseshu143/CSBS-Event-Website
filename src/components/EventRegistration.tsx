@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { submitFormToGAS, prepareFormData, fetchRegisteredSlots } from '../services';
+import { signInWithGoogle, signOutUser, type VerifiedUser } from '../services/authService';
 import './EventRegistration.css';
 
 /* ===== Configuration ===== */
@@ -103,6 +104,12 @@ export default function EventRegistration() {
   const [registeredSlots, setRegisteredSlots] = useState(0);
   const [slotsLoading, setSlotsLoading] = useState(true);
 
+  /* --- Email verification state (Google Auth) --- */
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailVerifyError, setEmailVerifyError] = useState<string | null>(null);
+  const [verifiedUser, setVerifiedUser] = useState<VerifiedUser | null>(null);
+
   /* --- Fetch live slot count from backend --- */
   const loadSlots = useCallback(async () => {
     try {
@@ -122,6 +129,46 @@ export default function EventRegistration() {
   const remainingSlots = EVENT_CONFIG.totalSlots - registeredSlots;
   const slotsPercent =
     (registeredSlots / EVENT_CONFIG.totalSlots) * 100;
+
+  /* --- Google Sign-In verification handler --- */
+  const handleVerifyEmail = useCallback(async () => {
+    setEmailVerifyError(null);
+    setEmailVerifying(true);
+
+    try {
+      const user = await signInWithGoogle();
+
+      // Auto-fill the form with Google account data
+      setVerifiedUser(user);
+      setFormData((prev) => ({
+        ...prev,
+        email: user.email,
+        leaderName: user.displayName || prev.leaderName,
+      }));
+      setEmailVerified(true);
+      setErrors((prev) => ({ ...prev, email: undefined, leaderName: undefined }));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Sign-in failed. Please try again.';
+      // Ignore popup-closed-by-user
+      if (message.includes('popup-closed-by-user') || message.includes('cancelled')) {
+        setEmailVerifyError(null);
+      } else {
+        setEmailVerifyError(message);
+      }
+    } finally {
+      setEmailVerifying(false);
+    }
+  }, []);
+
+  /* --- Reset verification (sign out & clear) --- */
+  const handleResetVerification = useCallback(async () => {
+    try { await signOutUser(); } catch { /* ignore */ }
+    setEmailVerified(false);
+    setVerifiedUser(null);
+    setEmailVerifyError(null);
+    setFormData((prev) => ({ ...prev, email: '', leaderName: '' }));
+  }, []);
 
   /* --- Field change handler --- */
   const handleChange = useCallback(
@@ -336,6 +383,10 @@ export default function EventRegistration() {
           // Reset form after successful submission
           setFormData(initialFormData);
           setErrors({});
+          setEmailVerified(false);
+          setEmailVerifyError(null);
+          setVerifiedUser(null);
+          try { await signOutUser(); } catch { /* ignore */ }
 
           // Refresh slot count after registration
           loadSlots();
@@ -444,60 +495,108 @@ export default function EventRegistration() {
               Team Leader Info
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="leaderName">
-                  Full Name <span className="required">*</span>
-                </label>
-                <input
-                  id="leaderName"
-                  name="leaderName"
-                  type="text"
-                  className={`form-input ${errors.leaderName ? 'error' : ''}`}
-                  placeholder="Enter your full name"
-                  value={formData.leaderName}
-                  onChange={handleChange}
-                />
-                <span className="field-error">{errors.leaderName ?? ''}</span>
+            {/* --- Google Sign-In Verification --- */}
+            {!emailVerified ? (
+              <div className="google-auth-section">
+                <p className="auth-prompt">Sign in with your college Google account to verify your identity</p>
+                <button
+                  type="button"
+                  className="google-signin-btn"
+                  onClick={handleVerifyEmail}
+                  disabled={emailVerifying}
+                >
+                  {emailVerifying ? (
+                    <>
+                      <span className="verify-spinner" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                      <span>Sign in with Google</span>
+                    </>
+                  )}
+                </button>
+                {emailVerifyError && (
+                  <span className="field-error" style={{ display: 'block', textAlign: 'center', marginTop: '0.5rem' }}>{emailVerifyError}</span>
+                )}
+                <p className="auth-domain-note">Only <strong>@vishnu.edu.in</strong> accounts are accepted</p>
               </div>
-            </div>
+            ) : (
+              /* --- Verified leader section with phone --- */
+              <div className="verified-leader-section">
+                <div className="verified-user-card">
+                  <div className="verified-user-info">
+                    {verifiedUser?.photoURL && (
+                      <img
+                        src={verifiedUser.photoURL}
+                        alt=""
+                        className="verified-user-photo"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="verified-user-details">
+                      <span className="verified-user-name">{formData.leaderName}</span>
+                      <span className="verified-user-email">{formData.email}</span>
+                    </div>
+                    <span className="verified-badge-inline">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      Verified
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="change-account-btn"
+                    onClick={handleResetVerification}
+                  >
+                    Change account
+                  </button>
+                </div>
 
-            <div className="form-row two-col">
-              <div className="form-group">
-                <label htmlFor="email">
-                  Email <span className="required">*</span>
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  className={`form-input ${errors.email ? 'error' : ''}`}
-                  placeholder="yourname@vishnu.edu.in"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-                <span className="field-error">{errors.email ?? ''}</span>
+                {/* Phone number — required after verification */}
+                <div className="verified-phone-section">
+                  <div className="form-group">
+                    <label htmlFor="phone">
+                      📞 Phone Number <span className="required">*</span>
+                    </label>
+                    <div className="phone-input-wrapper">
+                      <span className="phone-prefix">+91</span>
+                      <input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        className={`form-input ${errors.phone ? 'error' : ''}`}
+                        placeholder="Enter 10-digit mobile number"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        maxLength={10}
+                      />
+                    </div>
+                    <span className="field-error">{errors.phone ?? ''}</span>
+                  </div>
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="phone">
-                  Phone <span className="required">*</span>
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  className={`form-input ${errors.phone ? 'error' : ''}`}
-                  placeholder="10-digit number"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
-                <span className="field-error">{errors.phone ?? ''}</span>
-              </div>
-            </div>
+            )}
           </div>
 
+          {/* --- Locked overlay when email not verified --- */}
+          {!emailVerified && (
+            <div className="form-locked-notice">
+              <span className="lock-icon">🔒</span>
+              <span>Please verify your email above to unlock the registration form</span>
+            </div>
+          )}
+
           {/* --- Academic Info --- */}
-          <div className="form-section">
+          <fieldset className="form-section" disabled={!emailVerified}>
             <div className="section-label">
               <span className="section-icon">🎓</span>
               Academic Details
@@ -549,10 +648,10 @@ export default function EventRegistration() {
                 <span className="field-error">{errors.section ?? ''}</span>
               </div>
             </div>
-          </div>
+          </fieldset>
 
           {/* --- Team Setup --- */}
-          <div className="form-section">
+          <fieldset className="form-section" disabled={!emailVerified}>
             <div className="section-label">
               <span className="section-icon">👥</span>
               Team Setup
@@ -752,14 +851,14 @@ export default function EventRegistration() {
                 </div>
               </div>
             )}
-          </div>
+          </fieldset>
 
           {/* --- Submit --- */}
           <div className="submit-section">
             <button
               type="submit"
               className="submit-btn"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !emailVerified}
             >
               {isSubmitting ? (
                 <>

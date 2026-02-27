@@ -24,6 +24,16 @@ CONFIG_COPY_PASTE.txt
 CREDENTIALS_GUIDE.txt
 README_SETUP.md
 
+# Auto-generated documentation (local only)
+CHANGES_SUMMARY.md
+COMPLETION_REPORT.md
+DEPLOYMENT_GUIDE.md
+DOCUMENTATION_INDEX.md
+IMPLEMENTATION_DASHBOARD.md
+PROJECT_SUMMARY.md
+QUICK_REFERENCE.md
+README_UPDATED.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
