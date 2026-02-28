@@ -118,6 +118,12 @@ function doPost(e) {
       case "GET_REGISTRATIONS":
         return handleGetRegistrations_();
 
+      // --- Registration Status (Admin) ---
+      case "SET_REGISTRATION_STATUS":
+        return handleSetRegistrationStatus_(body);
+      case "GET_REGISTRATION_STATUS":
+        return handleGetRegistrationStatus_();
+
       // --- Event CRUD ---
       case "CREATE_EVENT":
         return handleCreateEvent_(body);
@@ -149,8 +155,57 @@ function doPost(e) {
  */
 function doGet(e) {
   return buildResponse("success", "CSBS Backend API is running.", {
-    version: "2.2.0",
-    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT"]
+    version: "2.3.0",
+    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS"]
+  });
+}
+
+// ============================================================================
+//                    REGISTRATION STATUS SERVICE
+// ============================================================================
+
+/**
+ * SET_REGISTRATION_STATUS — Admin toggles registrations open / closed.
+ * Stores the status in Script Properties for persistence.
+ * Body: { action: "SET_REGISTRATION_STATUS", open: true/false, adminEmail: "..." }
+ */
+function handleSetRegistrationStatus_(body) {
+  var open = body.open;
+  if (typeof open !== "boolean") {
+    return buildResponse("error", "'open' field (boolean) is required.", null);
+  }
+  var adminEmail = (body.adminEmail || "").toString().trim();
+  if (!adminEmail) {
+    return buildResponse("error", "Admin email is required for authorization.", null);
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("REGISTRATION_OPEN", open ? "true" : "false");
+  props.setProperty("REGISTRATION_STATUS_CHANGED_BY", adminEmail);
+  props.setProperty("REGISTRATION_STATUS_CHANGED_AT", new Date().toISOString());
+
+  return buildResponse("success", open ? "Registrations are now OPEN." : "Registrations are now CLOSED.", {
+    registrationOpen: open,
+    changedBy: adminEmail,
+    changedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * GET_REGISTRATION_STATUS — Returns whether registrations are open or closed.
+ */
+function handleGetRegistrationStatus_() {
+  var props = PropertiesService.getScriptProperties();
+  var status = props.getProperty("REGISTRATION_OPEN");
+  // Default to open if never set
+  var isOpen = (status === null || status === "true");
+  var changedBy = props.getProperty("REGISTRATION_STATUS_CHANGED_BY") || "";
+  var changedAt = props.getProperty("REGISTRATION_STATUS_CHANGED_AT") || "";
+
+  return buildResponse("success", isOpen ? "Registrations are OPEN." : "Registrations are CLOSED.", {
+    registrationOpen: isOpen,
+    changedBy: changedBy,
+    changedAt: changedAt
   });
 }
 
@@ -159,9 +214,16 @@ function doGet(e) {
 // ============================================================================
 
 /**
- * REGISTER — validate → check duplicates → write to spreadsheet
+ * REGISTER — validate → check status → check duplicates → write to spreadsheet
  */
 function handleRegister_(body) {
+  // ---- Check if registrations are open ----
+  var props = PropertiesService.getScriptProperties();
+  var regStatus = props.getProperty("REGISTRATION_OPEN");
+  if (regStatus === "false") {
+    return buildResponse("error", "Registrations are currently closed. Please check back later.", null);
+  }
+
   // Extract fields
   var leaderName = (body.leaderName || "").toString().trim();
   var email      = (body.email || "").toString().trim().toLowerCase();

@@ -106,6 +106,70 @@ export const fetchRegisteredSlots = async (): Promise<number> => {
   return 0;
 };
 
+/* ===== Registration Status (Admin Start / Stop) ===== */
+
+export interface RegistrationStatus {
+  registrationOpen: boolean;
+  changedBy: string;
+  changedAt: string;
+}
+
+/**
+ * Fetch the current registration open / closed status from the backend.
+ */
+export const getRegistrationStatus = async (): Promise<RegistrationStatus> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'GET_REGISTRATION_STATUS' }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  const result = JSON.parse(text);
+  if (result.status === 'success' && result.data) {
+    return {
+      registrationOpen: result.data.registrationOpen ?? true,
+      changedBy: result.data.changedBy ?? '',
+      changedAt: result.data.changedAt ?? '',
+    };
+  }
+  // Default to open if we can't determine status
+  return { registrationOpen: true, changedBy: '', changedAt: '' };
+};
+
+/**
+ * Set the registration status (open / closed). Admin-only action.
+ * @param open - true to open registrations, false to close them
+ * @param adminEmail - email of the admin performing the action
+ */
+export const setRegistrationStatus = async (
+  open: boolean,
+  adminEmail: string,
+): Promise<RegistrationStatus> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      action: 'SET_REGISTRATION_STATUS',
+      open,
+      adminEmail,
+    }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  const result = JSON.parse(text);
+  if (result.status === 'success' && result.data) {
+    return {
+      registrationOpen: result.data.registrationOpen ?? open,
+      changedBy: result.data.changedBy ?? adminEmail,
+      changedAt: result.data.changedAt ?? '',
+    };
+  }
+  throw new Error(result.message || 'Failed to update registration status');
+};
+
 /**
  * Prepare form data for submission
  * Ensures all required fields are properly formatted

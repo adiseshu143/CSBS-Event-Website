@@ -165,4 +165,215 @@
   .admin-dash-welcome h1 {
     font-size: 1.6rem;
   }
+
+  .reg-status-control {
+    padding: 1rem;
+  }
+
+  .reg-status-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reg-status-toggle-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ================================================
+   Registration Status Control
+   ================================================ */
+.reg-status-control {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.8rem;
+  box-shadow: 0 2px 16px rgba(46, 49, 144, 0.08);
+  border-left: 4px solid #2e3190;
+}
+
+.reg-status-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+}
+
+.reg-status-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  flex: 1;
+}
+
+.reg-status-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.reg-status-title {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: #1f2937;
+  margin: 0 0 0.2rem;
+  text-transform: uppercase;
+}
+
+.reg-status-desc {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0 0 0.25rem;
+}
+
+.reg-status-meta {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.reg-status-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.6rem 1.3rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reg-status-toggle-btn.is-open {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.reg-status-toggle-btn.is-open:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.reg-status-toggle-btn.is-closed {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #86efac;
+}
+.reg-status-toggle-btn.is-closed:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+.reg-status-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ================================================
+   Confirmation Dialog
+   ================================================ */
+.reg-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.reg-confirm-dialog {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.25s ease;
+}
+
+.reg-confirm-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.reg-confirm-dialog h3 {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: #1f2937;
+  margin: 0 0 0.5rem;
+}
+
+.reg-confirm-dialog p {
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0 0 1.4rem;
+}
+
+.reg-confirm-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.reg-confirm-cancel {
+  padding: 0.55rem 1.2rem;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  transition: all 0.2s ease;
+}
+.reg-confirm-cancel:hover {
+  background: #f3f4f6;
+}
+
+.reg-confirm-ok {
+  padding: 0.55rem 1.4rem;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  transition: all 0.2s ease;
+  color: #fff;
+}
+.reg-confirm-ok.danger {
+  background: #dc2626;
+}
+.reg-confirm-ok.danger:hover {
+  background: #b91c1c;
+}
+.reg-confirm-ok.success {
+  background: #16a34a;
+}
+.reg-confirm-ok.success:hover {
+  background: #15803d;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }

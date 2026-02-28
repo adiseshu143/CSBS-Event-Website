@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type FormEvent, type ChangeEvent } from 'react';
-import { submitFormToGAS, prepareFormData, fetchRegisteredSlots } from '../services';
+import { submitFormToGAS, prepareFormData, fetchRegisteredSlots, getRegistrationStatus } from '../services';
 import { signInWithGoogle, signOutUser, type VerifiedUser } from '../services/authService';
 import './EventRegistration.css';
 
@@ -104,6 +104,10 @@ export default function EventRegistration() {
   const [registeredSlots, setRegisteredSlots] = useState(0);
   const [slotsLoading, setSlotsLoading] = useState(true);
 
+  /* --- Registration open/closed status --- */
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [regStatusLoading, setRegStatusLoading] = useState(true);
+
   /* --- Email verification state (Google Auth) --- */
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailVerifying, setEmailVerifying] = useState(false);
@@ -125,6 +129,23 @@ export default function EventRegistration() {
   useEffect(() => {
     loadSlots();
   }, [loadSlots]);
+
+  /* --- Check registration status --- */
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        setRegStatusLoading(true);
+        const status = await getRegistrationStatus();
+        setRegistrationOpen(status.registrationOpen);
+      } catch {
+        // Default to open if status check fails
+        setRegistrationOpen(true);
+      } finally {
+        setRegStatusLoading(false);
+      }
+    };
+    checkStatus();
+  }, []);
 
   const remainingSlots = EVENT_CONFIG.totalSlots - registeredSlots;
   const slotsPercent =
@@ -338,6 +359,22 @@ export default function EventRegistration() {
       e.preventDefault();
       setAlert(null);
 
+      // Double-check registration status before submitting
+      try {
+        const status = await getRegistrationStatus();
+        if (!status.registrationOpen) {
+          setRegistrationOpen(false);
+          setAlert({
+            type: 'error',
+            title: 'Registrations Closed',
+            message: 'Registrations have been closed by the admin. No new submissions are being accepted.',
+          });
+          return;
+        }
+      } catch {
+        // If status check fails, allow submission (backend will enforce)
+      }
+
       if (!validate()) {
         setAlert({
           type: 'error',
@@ -418,11 +455,29 @@ export default function EventRegistration() {
   /* ===== Render ===== */
   return (
     <div className="registration-page">
+      {/* --- Registrations Closed Overlay --- */}
+      {!regStatusLoading && !registrationOpen && (
+        <div className="reg-closed-overlay">
+          <div className="reg-closed-popup">
+            <div className="reg-closed-icon">🚫</div>
+            <h2>Registrations Closed</h2>
+            <p>
+              Registrations for <strong>{EVENT_CONFIG.title}</strong> are currently closed.
+              Please check back later or contact the organizers for more information.
+            </p>
+            <div className="reg-closed-contact">
+              <span>📧</span>
+              <a href="mailto:csbs.vitb@gmail.com">csbs.vitb@gmail.com</a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Header --- */}
       <header className="event-header">
         <div className="event-badge">
           <span className="pulse-dot" />
-          Registrations Open
+          {regStatusLoading ? 'Checking status...' : registrationOpen ? 'Registrations Open' : 'Registrations Closed'}
         </div>
         <h1>{EVENT_CONFIG.title}</h1>
         <p style={{ whiteSpace: 'pre-line' }}>{EVENT_CONFIG.description}</p>

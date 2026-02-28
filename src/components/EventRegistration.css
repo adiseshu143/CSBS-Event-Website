@@ -1013,3 +1013,79 @@ fieldset.form-section:disabled {
     box-shadow: 8px 12px 0px rgba(183, 28, 28, 0.65), 0 15px 40px rgba(46, 49, 144, 0.15);
   }
 }
+
+/* ===== Registration Closed Overlay ===== */
+.reg-closed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  animation: regClosedFadeIn 0.3s ease;
+}
+
+.reg-closed-popup {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+  animation: regClosedSlideUp 0.35s ease;
+  border-top: 4px solid #dc2626;
+}
+
+.reg-closed-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.reg-closed-popup h2 {
+  font-family: var(--font-heading, 'Bebas Neue', sans-serif);
+  font-size: 1.8rem;
+  letter-spacing: 3px;
+  color: #dc2626;
+  margin: 0 0 0.8rem;
+  text-transform: uppercase;
+}
+
+.reg-closed-popup p {
+  font-size: 0.92rem;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0 0 1.2rem;
+}
+
+.reg-closed-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.6rem 1.2rem;
+  background: #f3f4f6;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.reg-closed-contact a {
+  color: #2e3190;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.reg-closed-contact a:hover {
+  text-decoration: underline;
+}
+
+@keyframes regClosedFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes regClosedSlideUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

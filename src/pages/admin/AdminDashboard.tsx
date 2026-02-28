@@ -1,9 +1,11 @@
 /**
  * Admin Dashboard — main admin page with section navigation.
  */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { getRegistrationStatus, setRegistrationStatus } from '../../services';
+import type { RegistrationStatus } from '../../services';
 import Registrations from '../../components/Registrations';
 import EventManagement from './EventManagement';
 import './AdminDashboard.css';
@@ -14,6 +16,45 @@ export default function AdminDashboard() {
   const { session, logout } = useAdminAuth();
   const navigate = useNavigate();
   const [view, setView] = useState<DashView>('home');
+
+  /* --- Registration status state --- */
+  const [regStatus, setRegStatus] = useState<RegistrationStatus | null>(null);
+  const [regStatusLoading, setRegStatusLoading] = useState(true);
+  const [regToggling, setRegToggling] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const loadRegStatus = useCallback(async () => {
+    try {
+      setRegStatusLoading(true);
+      const status = await getRegistrationStatus();
+      setRegStatus(status);
+    } catch (err) {
+      console.error('Failed to load registration status:', err);
+    } finally {
+      setRegStatusLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRegStatus();
+  }, [loadRegStatus]);
+
+  const handleToggleRegistration = async () => {
+    if (!regStatus || !session?.email) return;
+    setShowConfirmDialog(false);
+    setRegToggling(true);
+    try {
+      const newStatus = await setRegistrationStatus(
+        !regStatus.registrationOpen,
+        session.email,
+      );
+      setRegStatus(newStatus);
+    } catch (err) {
+      console.error('Failed to toggle registration status:', err);
+    } finally {
+      setRegToggling(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -50,6 +91,83 @@ export default function AdminDashboard() {
               <h1>Welcome, {session?.name || 'Admin'}!</h1>
               <p>You are logged in as <strong>{session?.email}</strong></p>
             </div>
+
+            {/* --- Registration Status Control --- */}
+            <div className="reg-status-control">
+              <div className="reg-status-info">
+                <div className="reg-status-header">
+                  <span className="reg-status-icon">
+                    {regStatusLoading ? '⏳' : regStatus?.registrationOpen ? '🟢' : '🔴'}
+                  </span>
+                  <div>
+                    <h3 className="reg-status-title">Registration Status</h3>
+                    <p className="reg-status-desc">
+                      {regStatusLoading
+                        ? 'Loading status...'
+                        : regStatus?.registrationOpen
+                          ? 'Registrations are currently OPEN — users can submit responses.'
+                          : 'Registrations are currently CLOSED — no new responses will be accepted.'}
+                    </p>
+                    {regStatus?.changedBy && !regStatusLoading && (
+                      <p className="reg-status-meta">
+                        Last changed by <strong>{regStatus.changedBy}</strong>
+                        {regStatus.changedAt && (
+                          <> on {new Date(regStatus.changedAt).toLocaleString()}</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  className={`reg-status-toggle-btn ${regStatus?.registrationOpen ? 'is-open' : 'is-closed'}`}
+                  onClick={() => setShowConfirmDialog(true)}
+                  disabled={regStatusLoading || regToggling}
+                >
+                  {regToggling
+                    ? 'Updating...'
+                    : regStatusLoading
+                      ? 'Loading...'
+                      : regStatus?.registrationOpen
+                        ? '⏸ Stop Registrations'
+                        : '▶ Start Registrations'}
+                </button>
+              </div>
+            </div>
+
+            {/* --- Confirmation Dialog --- */}
+            {showConfirmDialog && (
+              <div className="reg-confirm-overlay" onClick={() => setShowConfirmDialog(false)}>
+                <div className="reg-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+                  <div className="reg-confirm-icon">
+                    {regStatus?.registrationOpen ? '⏸️' : '▶️'}
+                  </div>
+                  <h3>
+                    {regStatus?.registrationOpen
+                      ? 'Stop Registrations?'
+                      : 'Start Registrations?'}
+                  </h3>
+                  <p>
+                    {regStatus?.registrationOpen
+                      ? 'This will immediately close new registrations. Users will see a "Registrations Closed" message and no data will be stored in the spreadsheet.'
+                      : 'This will re-open registrations. Users will be able to submit new responses again.'}
+                  </p>
+                  <div className="reg-confirm-actions">
+                    <button
+                      className="reg-confirm-cancel"
+                      onClick={() => setShowConfirmDialog(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className={`reg-confirm-ok ${regStatus?.registrationOpen ? 'danger' : 'success'}`}
+                      onClick={handleToggleRegistration}
+                    >
+                      {regStatus?.registrationOpen ? 'Yes, Stop' : 'Yes, Start'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="admin-dash-grid">
               <div className="admin-dash-card" onClick={() => setView('registrations')}>
