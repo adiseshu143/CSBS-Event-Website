@@ -2,9 +2,10 @@
 // CSBS UNIFIED BACKEND — Google Apps Script
 // ============================================================================
 // Deploy as: Execute as Me | Access: Anyone
-// Single script serving BOTH:
+// Single script serving:
 //   1. Event Registration  → REGISTER, GET_SLOTS
 //   2. Admin OTP Auth      → SEND_OTP, VERIFY_OTP
+//   3. Multi-sender Email  → Gmail API with OAuth2 (5 accounts, single deploy)
 //
 // ⚠️  DELETE Registration.gs from this project — everything is in this file.
 // ============================================================================
@@ -50,67 +51,51 @@ var CONFIG = {
   EVENTS_SHEET_NAME: "Events",
 
   // ==========================================================================
-  // MULTI-SENDER EMAIL ROTATION CONFIG
+  // SINGLE-DEPLOYMENT MULTI-SENDER EMAIL ROTATION
   // ==========================================================================
   // HOW IT WORKS:
-  //   - Each sender account must be deployed as its own Apps Script Web App.
-  //   - Deployment 1 (this script) = Primary account (your-email@gmail.com)
-  //   - Deployment 2               = csbs.vitb1@gmail.com
-  //   - Deployment 3               = csbs.vitb2@gmail.com
-  //   - Deployment 4               = csbs.vitb3@gmail.com
-  //   - Deployment 5               = csbs.vitb4@gmail.com
+  //   - This SINGLE Apps Script deployment sends emails from 5 Gmail accounts.
+  //   - Account 1 (the deploying account) uses GmailApp.sendEmail() directly.
+  //   - Accounts 2–5 send via the Gmail REST API using OAuth2 refresh tokens.
+  //   - Each account has a daily limit (DAILY_EMAIL_LIMIT). When one account
+  //     hits its limit, the next account is used automatically.
   //
-  //   The frontend ONLY calls Deployment 1 (primary URL). Deployment 1 decides
-  //   which account's quota is available and, if needed, delegates the actual
-  //   email send to the correct deployment URL via UrlFetchApp.
+  // SETUP (one-time, for accounts 2–5):
+  //   1. Go to https://console.cloud.google.com → Create a project (or reuse one).
+  //   2. Enable the "Gmail API" for that project.
+  //   3. Go to APIs & Services → Credentials → Create Credentials → OAuth client ID.
+  //      - Application type: "Web application"
+  //      - Authorized redirect URIs: add  https://developers.google.com/oauthplayground
+  //   4. Copy the Client ID and Client Secret into the config below.
+  //   5. For EACH account (2, 3, 4, 5), get a refresh token:
+  //      a. Open https://developers.google.com/oauthplayground/
+  //      b. Click the ⚙️ gear icon (top-right) → check "Use your own OAuth credentials"
+  //      c. Paste your Client ID and Client Secret.
+  //      d. In Step 1 (left panel), type this scope and click "Authorize APIs":
+  //             https://www.googleapis.com/auth/gmail.send
+  //      e. Log in with the Gmail account (e.g. csbs.vitb1@gmail.com for sender 2).
+  //      f. Click "Exchange authorization code for tokens" in Step 2.
+  //      g. Copy the "Refresh token" value.
+  //      h. In the Apps Script editor, run:
+  //             SETUP_SAVE_REFRESH_TOKEN(2, "1//0abc...")   ← for sender 2
+  //             SETUP_SAVE_REFRESH_TOKEN(3, "1//0xyz...")   ← for sender 3
+  //             ... and so on for 4, 5.
   //
-  //   If the request includes ?senderId=2..5 in the URL, the script
-  //   skips routing logic and just sends the email directly (acting as a delegate).
-  //
-  // SETUP STEPS:
-  //   1. Deploy this SAME script from Account 1 → copy URL → SENDER_ACCOUNTS[0].deploymentUrl
-  //   2. Deploy this SAME script from Account 2 → copy URL → SENDER_ACCOUNTS[1].deploymentUrl
-  //   3. Deploy this SAME script from Account 3 → copy URL → SENDER_ACCOUNTS[2].deploymentUrl
-  //   4. Deploy this SAME script from Account 4 → copy URL → SENDER_ACCOUNTS[3].deploymentUrl
-  //   5. Deploy this SAME script from Account 5 → copy URL → SENDER_ACCOUNTS[4].deploymentUrl
-  //   6. All five deploymentUrl values must be set below before going live.
-  //
-  // ⚠️ REPLACE the placeholder URLs below with your real deployment URLs.
+  // After setup, everything is automatic — no extra deployments needed!
   // ==========================================================================
 
-  DAILY_EMAIL_LIMIT: 150, // Gmail Apps Script daily limit per account
+  DAILY_EMAIL_LIMIT: 100, // emails per account per day
+
+  // ⚠️ REPLACE with your Google Cloud OAuth2 credentials (needed for senders 2–5)
+  GMAIL_API_CLIENT_ID: "YOUR_GCP_CLIENT_ID",
+  GMAIL_API_CLIENT_SECRET: "YOUR_GCP_CLIENT_SECRET",
 
   SENDER_ACCOUNTS: [
-    {
-      id: 1,
-      email: "your-email@gmail.com",         // ⚠️ Replace: Primary account email
-      name: "CSBS Tech Fest 2026",
-      deploymentUrl: "YOUR_DEPLOYMENT_1_URL" // ⚠️ Replace: Deployment 1 Web App URL
-    },
-    {
-      id: 2,
-      email: "csbs.vitb1@gmail.com",         // ⚠️ Replace if different
-      name: "CSBS Tech Fest 2026",
-      deploymentUrl: "YOUR_DEPLOYMENT_2_URL" // ⚠️ Replace: Deployment 2 Web App URL
-    },
-    {
-      id: 3,
-      email: "csbs.vitb2@gmail.com",         // ⚠️ Replace if different
-      name: "CSBS Tech Fest 2026",
-      deploymentUrl: "YOUR_DEPLOYMENT_3_URL" // ⚠️ Replace: Deployment 3 Web App URL
-    },
-    {
-      id: 4,
-      email: "csbs.vitb3@gmail.com",
-      name: "CSBS Tech Fest 2026",
-      deploymentUrl: "YOUR_DEPLOYMENT_4_URL" // ⚠️ Replace: Deployment 4 Web App URL
-    },
-    {
-      id: 5,
-      email: "csbs.vitb4@gmail.com",
-      name: "CSBS Tech Fest 2026",
-      deploymentUrl: "YOUR_DEPLOYMENT_5_URL" // ⚠️ Replace: Deployment 5 Web App URL
-    }
+    { id: 1, email: "csbs.vitb@gmail.com",  name: "CSBS Tech Fest 2026", useDirectGmail: true  },
+    { id: 2, email: "csbs.vitb1@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
+    { id: 3, email: "csbs.vitb2@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
+    { id: 4, email: "csbs.vitb3@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
+    { id: 5, email: "csbs.vitb4@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false }
   ]
 };
 
@@ -153,10 +138,7 @@ function buildResponse(status, message, data) {
 
 /**
  * Main POST handler — routes ALL actions
- * Actions: REGISTER, GET_SLOTS, SEND_OTP, VERIFY_OTP
- *
- * Special internal use: if body contains __delegate_email__ = true,
- * this deployment acts as an email delegate and sends directly.
+ * Actions: REGISTER, GET_SLOTS, SEND_OTP, VERIFY_OTP, CREATE_EVENT, etc.
  */
 function doPost(e) {
   try {
@@ -169,14 +151,6 @@ function doPost(e) {
       body = JSON.parse(raw);
     } catch (parseErr) {
       return buildResponse("error", "Invalid JSON request body.", null);
-    }
-
-    // -----------------------------------------------------------------------
-    // DELEGATE MODE: Another deployment is asking THIS deployment to send email
-    // This path is ONLY reached when called internally by the primary deployment.
-    // -----------------------------------------------------------------------
-    if (body.__delegate_email__ === true) {
-      return handleDelegateEmailSend_(body);
     }
 
     var action = (body.action || "").toString().trim().toUpperCase();
@@ -227,7 +201,7 @@ function doPost(e) {
  */
 function doGet(e) {
   return buildResponse("success", "CSBS Backend API is running.", {
-    version: "2.4.0",
+    version: "3.0.0",
     actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS"]
   });
 }
@@ -1057,37 +1031,30 @@ function parseFirestoreFields_(fields) {
 // ============================================================================
 
 // ============================================================================
-// MULTI-SENDER EMAIL ROTATION
+// SINGLE-DEPLOYMENT MULTI-SENDER EMAIL ROTATION
 // ============================================================================
 //
-// HOW IT WORKS (step by step):
+// HOW IT WORKS:
 //
 //   1. getAvailableSender_() reads daily send counts from ScriptProperties.
-//      It checks each sender (1 → 2 → 3) and returns the first one that has
-//      not yet hit DAILY_EMAIL_LIMIT for the current calendar day (UTC).
+//      It checks each sender (1 → 2 → 3 → 4 → 5) and returns the first one
+//      that has not yet hit DAILY_EMAIL_LIMIT for the current calendar day.
 //
-//   2. recordEmailSent_(senderId) increments that sender's daily count.
+//   2. sendViaAccount_() routes the email:
+//      - Account 1 (deployer): sends directly via GmailApp.sendEmail()
+//      - Accounts 2–5: sends via Gmail REST API using OAuth2 access tokens
+//        obtained from stored refresh tokens (in Script Properties).
 //
-//   3. routeEmail_(toAddresses, subject, plainText, htmlBody, senderAccount)
-//      - If senderAccount.id === 1 (this deployment) → send directly via GmailApp.
-//      - If senderAccount.id === 2 or 3 → POST to that account's deployment URL
-//        with __delegate_email__ = true. That deployment's doPost() sees the flag
-//        and calls GmailApp directly (which uses its own Gmail account).
+//   3. recordEmailSent_(senderId) increments that sender's daily count.
 //
-//   4. handleDelegateEmailSend_(body) handles the incoming delegate request.
-//      It simply calls GmailApp.sendEmail() for each recipient and returns a
-//      JSON response. The primary deployment ignores this response (fire-and-
-//      forget is acceptable; errors are logged).
-//
-//   5. Daily counts reset automatically: each count key is stored with a date
-//      suffix (e.g. "emailCount_1_2025-07-14"). Keys from previous days are
-//      simply never matched again and have no effect.
+//   4. Daily counts reset automatically: each count key is stored with a
+//      date suffix (e.g. "emailCount_1_2025-07-14").
 //
 // ============================================================================
 
 /**
  * Returns the daily count storage key for a sender on today's UTC date.
- * @param {number} senderId  1, 2, or 3
+ * @param {number} senderId  1, 2, 3, 4, or 5
  * @returns {string}
  */
 function getEmailCountKey_(senderId) {
@@ -1138,92 +1105,159 @@ function getAvailableSender_() {
 }
 
 /**
- * Routes an email send request to the correct sender deployment.
- * If the sender is Account 1 (this deployment), sends directly via GmailApp.
- * If the sender is Account 2 or 3, delegates to their deployment URL via HTTP POST.
+ * Routes an email to the correct sender account.
+ * Account 1 (deployer): sends directly with GmailApp.sendEmail().
+ * Accounts 2–5: sends via Gmail REST API using OAuth2 refresh tokens.
  *
- * @param {string[]} toAddresses  Array of recipient email addresses
- * @param {string}   subject      Email subject line
- * @param {string}   plainText    Plain-text fallback body
- * @param {string}   htmlBody     HTML email body
- * @param {Object}   senderAccount  Entry from CONFIG.SENDER_ACCOUNTS
+ * @param {string[]} toAddresses   Array of recipient email addresses
+ * @param {string}   subject       Email subject line
+ * @param {string}   plainText     Plain-text fallback body
+ * @param {string}   htmlBody      HTML email body
+ * @param {Object}   senderAccount Entry from CONFIG.SENDER_ACCOUNTS
  */
-function routeEmail_(toAddresses, subject, plainText, htmlBody, senderAccount) {
-  if (senderAccount.id === 1) {
-    // This deployment IS Account 1 — send directly
-    for (var i = 0; i < toAddresses.length; i++) {
-      try {
+function sendViaAccount_(toAddresses, subject, plainText, htmlBody, senderAccount) {
+  for (var i = 0; i < toAddresses.length; i++) {
+    try {
+      if (senderAccount.useDirectGmail) {
+        // Account 1: send directly using GmailApp (the deploying account)
         GmailApp.sendEmail(toAddresses[i], subject, plainText, {
-          from: senderAccount.email,
           name: senderAccount.name,
           htmlBody: htmlBody
         });
-      } catch (sendErr) {
-        Logger.log("Sender 1 failed to email " + toAddresses[i] + ": " + sendErr.toString());
+      } else {
+        // Accounts 2–5: send via Gmail REST API
+        sendViaGmailApi_(toAddresses[i], subject, plainText, htmlBody, senderAccount);
       }
-    }
-  } else {
-    // Delegate to the other deployment via HTTP POST
-    if (!senderAccount.deploymentUrl || senderAccount.deploymentUrl.indexOf("YOUR_DEPLOYMENT") !== -1) {
-      Logger.log("ERROR: Deployment URL for sender " + senderAccount.id + " is not configured. Email not sent.");
-      return;
-    }
-
-    var payload = JSON.stringify({
-      __delegate_email__: true,
-      toAddresses: toAddresses,
-      subject: subject,
-      plainText: plainText,
-      htmlBody: htmlBody
-    });
-
-    try {
-      UrlFetchApp.fetch(senderAccount.deploymentUrl, {
-        method: "post",
-        contentType: "text/plain", // Avoids CORS preflight; body is valid JSON
-        payload: payload,
-        muteHttpExceptions: true
-      });
-      Logger.log("Delegated " + toAddresses.length + " email(s) to sender " + senderAccount.id + " (" + senderAccount.email + ").");
-    } catch (fetchErr) {
-      Logger.log("Failed to delegate email to sender " + senderAccount.id + ": " + fetchErr.toString());
+    } catch (sendErr) {
+      Logger.log("Sender " + senderAccount.id + " failed to email " + toAddresses[i] + ": " + sendErr.toString());
     }
   }
 }
 
+// ============================================================================
+// GMAIL REST API — OAuth2 Token & Send Functions (for accounts 2–5)
+// ============================================================================
+
 /**
- * DELEGATE MODE handler — called when another deployment POSTs with __delegate_email__ = true.
- * Sends the email directly via GmailApp (which uses THIS deployment's Gmail account).
- * Returns a lightweight JSON response (ignored by the caller).
+ * Get a fresh OAuth2 access token for the given sender account
+ * using the stored refresh token.
  *
- * @param {Object} body  Parsed request body
+ * @param {number} senderId  e.g. 2, 3, 4, 5
+ * @returns {string} Access token
+ * @throws {Error} If refresh token is missing or token exchange fails
  */
-function handleDelegateEmailSend_(body) {
-  var toAddresses = body.toAddresses || [];
-  var subject     = body.subject    || "";
-  var plainText   = body.plainText  || "";
-  var htmlBody    = body.htmlBody   || "";
+function getAccessToken_(senderId) {
+  var props = PropertiesService.getScriptProperties();
+  var refreshToken = props.getProperty("gmail_refresh_token_" + senderId);
 
-  if (!toAddresses.length || !subject) {
-    return buildResponse("error", "Missing required fields for delegate email send.", null);
+  if (!refreshToken) {
+    throw new Error(
+      "No refresh token found for sender " + senderId +
+      ". Run SETUP_SAVE_REFRESH_TOKEN(" + senderId + ", 'your-token') first."
+    );
   }
 
-  var sent = 0;
-  var failed = 0;
+  var response = UrlFetchApp.fetch("https://oauth2.googleapis.com/token", {
+    method: "post",
+    contentType: "application/x-www-form-urlencoded",
+    payload: {
+      grant_type: "refresh_token",
+      client_id: CONFIG.GMAIL_API_CLIENT_ID,
+      client_secret: CONFIG.GMAIL_API_CLIENT_SECRET,
+      refresh_token: refreshToken
+    },
+    muteHttpExceptions: true
+  });
 
-  for (var i = 0; i < toAddresses.length; i++) {
-    try {
-      GmailApp.sendEmail(toAddresses[i], subject, plainText, {
-        htmlBody: htmlBody
-      });
-      sent++;
-    } catch (sendErr) {
-      Logger.log("Delegate send failed for " + toAddresses[i] + ": " + sendErr.toString());
-      failed++;
+  var code = response.getResponseCode();
+  var body = JSON.parse(response.getContentText());
+
+  if (code !== 200 || !body.access_token) {
+    throw new Error(
+      "OAuth2 token refresh failed for sender " + senderId +
+      " (HTTP " + code + "): " + (body.error_description || body.error || "unknown error")
+    );
+  }
+
+  return body.access_token;
+}
+
+/**
+ * Build a RFC 2822 MIME message and return it as a web-safe base64 string
+ * suitable for the Gmail API "raw" field.
+ *
+ * @param {string} to         Recipient email
+ * @param {string} subject    Email subject
+ * @param {string} plainText  Plain-text body
+ * @param {string} htmlBody   HTML body
+ * @param {string} fromEmail  Sender email address
+ * @param {string} fromName   Sender display name
+ * @returns {string} Base64url-encoded MIME message
+ */
+function createMimeMessage_(to, subject, plainText, htmlBody, fromEmail, fromName) {
+  var boundary = "boundary_" + Date.now() + "_" + Math.random().toString(36).substr(2, 8);
+
+  var mimeLines = [
+    "MIME-Version: 1.0",
+    "From: =?UTF-8?B?" + Utilities.base64Encode(fromName, Utilities.Charset.UTF_8) + "?= <" + fromEmail + ">",
+    "To: " + to,
+    "Subject: =?UTF-8?B?" + Utilities.base64Encode(subject, Utilities.Charset.UTF_8) + "?=",
+    "Content-Type: multipart/alternative; boundary=\"" + boundary + "\"",
+    "",
+    "--" + boundary,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    Utilities.base64Encode(plainText, Utilities.Charset.UTF_8),
+    "",
+    "--" + boundary,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    Utilities.base64Encode(htmlBody, Utilities.Charset.UTF_8),
+    "",
+    "--" + boundary + "--"
+  ];
+
+  var rawMessage = mimeLines.join("\r\n");
+  return Utilities.base64EncodeWebSafe(rawMessage);
+}
+
+/**
+ * Send a single email via the Gmail REST API using OAuth2.
+ *
+ * @param {string} toEmail       Recipient
+ * @param {string} subject       Subject line
+ * @param {string} plainText     Plain-text fallback
+ * @param {string} htmlBody      HTML body
+ * @param {Object} senderAccount Entry from CONFIG.SENDER_ACCOUNTS
+ */
+function sendViaGmailApi_(toEmail, subject, plainText, htmlBody, senderAccount) {
+  var accessToken = getAccessToken_(senderAccount.id);
+
+  var raw = createMimeMessage_(
+    toEmail, subject, plainText, htmlBody,
+    senderAccount.email, senderAccount.name
+  );
+
+  var response = UrlFetchApp.fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + accessToken },
+      payload: JSON.stringify({ raw: raw }),
+      muteHttpExceptions: true
     }
+  );
+
+  var code = response.getResponseCode();
+  if (code !== 200) {
+    var errBody = response.getContentText();
+    throw new Error("Gmail API send failed (HTTP " + code + "): " + errBody);
   }
 
-  return buildResponse("success", "Delegate email send complete.", { sent: sent, failed: failed });
+  Logger.log("Gmail API: sent to " + toEmail + " via sender " + senderAccount.id + " (" + senderAccount.email + ")");
 }
 
 /**
@@ -1248,7 +1282,7 @@ function sendEmailWithRotation_(toAddresses, subject, plainText, htmlBody) {
 
   Logger.log("Using sender " + sender.id + " (" + sender.email + ") for " + toAddresses.length + " email(s). Daily count today: " + getEmailCountToday_(sender.id));
 
-  routeEmail_(toAddresses, subject, plainText, htmlBody, sender);
+  sendViaAccount_(toAddresses, subject, plainText, htmlBody, sender);
 
   // Record all emails in this batch as sent from this account
   recordEmailSent_(sender.id, toAddresses.length);
@@ -1590,7 +1624,9 @@ function formatTimestamp_(isoString) {
 }
 
 // ============================================================================
-// AUTHORIZATION — Run this FIRST from the Apps Script editor!
+// AUTHORIZATION & GMAIL API SETUP
+// ============================================================================
+// Run these functions from the Apps Script editor (select → ▶ Run).
 // ============================================================================
 
 /**
@@ -1606,16 +1642,16 @@ function AUTHORIZE_ALL_PERMISSIONS() {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   Logger.log("✅ SpreadsheetApp: " + ss.getName());
 
-  // GmailApp (for OTP emails)
+  // GmailApp (for OTP emails — Account 1)
   var drafts = GmailApp.getDrafts();
   Logger.log("✅ GmailApp: accessible (" + drafts.length + " drafts)");
 
-  // UrlFetchApp (for Firestore REST API + email delegation)
+  // UrlFetchApp (for Firestore REST API + Gmail API)
   var testUrl = "https://www.googleapis.com";
   UrlFetchApp.fetch(testUrl, { muteHttpExceptions: true });
   Logger.log("✅ UrlFetchApp: accessible");
 
-  // PropertiesService (for OTP storage + email counts)
+  // PropertiesService (for OTP storage + email counts + refresh tokens)
   PropertiesService.getScriptProperties().getProperties();
   Logger.log("✅ PropertiesService: accessible");
 
@@ -1628,6 +1664,133 @@ function AUTHORIZE_ALL_PERMISSIONS() {
   Logger.log("");
   Logger.log("🎉 ALL PERMISSIONS GRANTED!");
   Logger.log("You can now deploy/redeploy the web app.");
+  Logger.log("");
+  Logger.log("NEXT STEPS (if not done yet):");
+  Logger.log("  1. Set up OAuth2 credentials (see CONFIG comments).");
+  Logger.log("  2. Run SETUP_SAVE_REFRESH_TOKEN(senderId, token) for each sender 2–5.");
+  Logger.log("  3. Run SETUP_TEST_GMAIL_API(senderId) to verify each sender works.");
+}
+
+/**
+ * 🔑 SETUP_SAVE_REFRESH_TOKEN — Store a Gmail API refresh token for a sender account.
+ *
+ * Usage (from the editor):
+ *   SETUP_SAVE_REFRESH_TOKEN(2, "1//0abc123...");  // for csbs.vitb1@gmail.com
+ *   SETUP_SAVE_REFRESH_TOKEN(3, "1//0xyz789...");  // for csbs.vitb2@gmail.com
+ *   etc.
+ *
+ * @param {number} senderId     The sender ID (2, 3, 4, or 5)
+ * @param {string} refreshToken The OAuth2 refresh token from Google OAuth Playground
+ */
+function SETUP_SAVE_REFRESH_TOKEN(senderId, refreshToken) {
+  if (!senderId || senderId < 2 || senderId > 5) {
+    Logger.log("❌ Invalid senderId. Must be 2, 3, 4, or 5.");
+    Logger.log("   (Account 1 uses GmailApp directly — no token needed.)");
+    return;
+  }
+  if (!refreshToken || refreshToken.length < 10) {
+    Logger.log("❌ Invalid refresh token. It should start with '1//' and be quite long.");
+    return;
+  }
+
+  var account = null;
+  for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
+    if (CONFIG.SENDER_ACCOUNTS[i].id === senderId) {
+      account = CONFIG.SENDER_ACCOUNTS[i];
+      break;
+    }
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("gmail_refresh_token_" + senderId, refreshToken);
+
+  Logger.log("✅ Refresh token saved for sender " + senderId + " (" + (account ? account.email : "unknown") + ").");
+  Logger.log("   Key: gmail_refresh_token_" + senderId);
+  Logger.log("");
+  Logger.log("Next: Run SETUP_TEST_GMAIL_API(" + senderId + ") to verify it works.");
+}
+
+/**
+ * 🧪 SETUP_TEST_GMAIL_API — Test that a sender's Gmail API credentials work.
+ * Attempts to get an access token. Does NOT send any email.
+ *
+ * @param {number} senderId  The sender ID to test (2, 3, 4, or 5)
+ */
+function SETUP_TEST_GMAIL_API(senderId) {
+  if (!senderId || senderId < 2 || senderId > 5) {
+    Logger.log("❌ Invalid senderId. Must be 2, 3, 4, or 5.");
+    return;
+  }
+
+  var account = null;
+  for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
+    if (CONFIG.SENDER_ACCOUNTS[i].id === senderId) {
+      account = CONFIG.SENDER_ACCOUNTS[i];
+      break;
+    }
+  }
+
+  Logger.log("=== GMAIL API TEST — Sender " + senderId + " (" + (account ? account.email : "?") + ") ===");
+
+  // Check refresh token exists
+  var props = PropertiesService.getScriptProperties();
+  var refreshToken = props.getProperty("gmail_refresh_token_" + senderId);
+  if (!refreshToken) {
+    Logger.log("❌ No refresh token stored for sender " + senderId + ".");
+    Logger.log("   Run SETUP_SAVE_REFRESH_TOKEN(" + senderId + ", 'your-token') first.");
+    return;
+  }
+  Logger.log("✅ Refresh token found (length: " + refreshToken.length + " chars).");
+
+  // Check OAuth2 credentials
+  if (!CONFIG.GMAIL_API_CLIENT_ID || CONFIG.GMAIL_API_CLIENT_ID === "YOUR_GCP_CLIENT_ID") {
+    Logger.log("❌ GMAIL_API_CLIENT_ID is not configured in CONFIG.");
+    return;
+  }
+  if (!CONFIG.GMAIL_API_CLIENT_SECRET || CONFIG.GMAIL_API_CLIENT_SECRET === "YOUR_GCP_CLIENT_SECRET") {
+    Logger.log("❌ GMAIL_API_CLIENT_SECRET is not configured in CONFIG.");
+    return;
+  }
+  Logger.log("✅ OAuth2 Client ID and Secret configured.");
+
+  // Try to get an access token
+  try {
+    var accessToken = getAccessToken_(senderId);
+    Logger.log("✅ Access token obtained successfully!");
+    Logger.log("   Token preview: " + accessToken.substring(0, 20) + "...");
+    Logger.log("");
+    Logger.log("🎉 Sender " + senderId + " is ready to send emails via Gmail API.");
+  } catch (err) {
+    Logger.log("❌ Failed to get access token: " + err.toString());
+    Logger.log("");
+    Logger.log("TROUBLESHOOTING:");
+    Logger.log("  - Make sure the Gmail API is enabled in your GCP project.");
+    Logger.log("  - Verify the Client ID and Secret match your GCP credentials.");
+    Logger.log("  - Try generating a new refresh token from OAuth Playground.");
+  }
+}
+
+/**
+ * 📋 SETUP_VIEW_REFRESH_TOKENS — List which senders have tokens stored.
+ * Does NOT reveal the actual tokens (only shows presence and length).
+ */
+function SETUP_VIEW_REFRESH_TOKENS() {
+  Logger.log("=== STORED REFRESH TOKENS ===");
+  var props = PropertiesService.getScriptProperties();
+
+  for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
+    var account = CONFIG.SENDER_ACCOUNTS[i];
+    if (account.useDirectGmail) {
+      Logger.log("Sender " + account.id + " (" + account.email + "): Uses GmailApp directly — no token needed.");
+    } else {
+      var token = props.getProperty("gmail_refresh_token_" + account.id);
+      if (token) {
+        Logger.log("Sender " + account.id + " (" + account.email + "): ✅ Token stored (" + token.length + " chars)");
+      } else {
+        Logger.log("Sender " + account.id + " (" + account.email + "): ❌ No token — run SETUP_SAVE_REFRESH_TOKEN(" + account.id + ", 'token')");
+      }
+    }
+  }
 }
 
 /**
@@ -1790,11 +1953,12 @@ function TEST_emailSenderStatus() {
     var sent = getEmailCountToday_(account.id);
     var remaining = CONFIG.DAILY_EMAIL_LIMIT - sent;
     var status = sent >= CONFIG.DAILY_EMAIL_LIMIT ? "❌ LIMIT REACHED" : "✅ Available";
+    var method = account.useDirectGmail ? "GmailApp (direct)" : "Gmail API (OAuth2)";
     Logger.log("Sender " + account.id + ": " + account.email);
-    Logger.log("  Status   : " + status);
+    Logger.log("  Status    : " + status);
+    Logger.log("  Method    : " + method);
     Logger.log("  Sent today: " + sent + " / " + CONFIG.DAILY_EMAIL_LIMIT);
     Logger.log("  Remaining : " + remaining);
-    Logger.log("  Deploy URL: " + account.deploymentUrl);
     Logger.log("");
   }
 
