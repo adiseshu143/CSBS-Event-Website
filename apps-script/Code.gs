@@ -57,19 +57,23 @@ var CONFIG = {
   //   - Deployment 1 (this script) = Primary account (your-email@gmail.com)
   //   - Deployment 2               = csbs.vitb1@gmail.com
   //   - Deployment 3               = csbs.vitb2@gmail.com
+  //   - Deployment 4               = csbs.vitb3@gmail.com
+  //   - Deployment 5               = csbs.vitb4@gmail.com
   //
   //   The frontend ONLY calls Deployment 1 (primary URL). Deployment 1 decides
   //   which account's quota is available and, if needed, delegates the actual
   //   email send to the correct deployment URL via UrlFetchApp.
   //
-  //   If the request includes ?senderId=2 or ?senderId=3 in the URL, the script
+  //   If the request includes ?senderId=2..5 in the URL, the script
   //   skips routing logic and just sends the email directly (acting as a delegate).
   //
   // SETUP STEPS:
   //   1. Deploy this SAME script from Account 1 → copy URL → SENDER_ACCOUNTS[0].deploymentUrl
   //   2. Deploy this SAME script from Account 2 → copy URL → SENDER_ACCOUNTS[1].deploymentUrl
   //   3. Deploy this SAME script from Account 3 → copy URL → SENDER_ACCOUNTS[2].deploymentUrl
-  //   4. All three deploymentUrl values must be set below before going live.
+  //   4. Deploy this SAME script from Account 4 → copy URL → SENDER_ACCOUNTS[3].deploymentUrl
+  //   5. Deploy this SAME script from Account 5 → copy URL → SENDER_ACCOUNTS[4].deploymentUrl
+  //   6. All five deploymentUrl values must be set below before going live.
   //
   // ⚠️ REPLACE the placeholder URLs below with your real deployment URLs.
   // ==========================================================================
@@ -94,6 +98,18 @@ var CONFIG = {
       email: "csbs.vitb2@gmail.com",         // ⚠️ Replace if different
       name: "CSBS Tech Fest 2026",
       deploymentUrl: "YOUR_DEPLOYMENT_3_URL" // ⚠️ Replace: Deployment 3 Web App URL
+    },
+    {
+      id: 4,
+      email: "csbs.vitb3@gmail.com",
+      name: "CSBS Tech Fest 2026",
+      deploymentUrl: "YOUR_DEPLOYMENT_4_URL" // ⚠️ Replace: Deployment 4 Web App URL
+    },
+    {
+      id: 5,
+      email: "csbs.vitb4@gmail.com",
+      name: "CSBS Tech Fest 2026",
+      deploymentUrl: "YOUR_DEPLOYMENT_5_URL" // ⚠️ Replace: Deployment 5 Web App URL
     }
   ]
 };
