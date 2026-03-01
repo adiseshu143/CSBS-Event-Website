@@ -44,3 +44,4 @@ README_UPDATED.md
 *.njsproj
 *.sln
 *.sw?
+.vercel
