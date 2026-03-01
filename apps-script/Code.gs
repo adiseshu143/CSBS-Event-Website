@@ -36,7 +36,7 @@ var CONFIG = {
   LOCKOUT_MINUTES: 15,
 
   // ---------- Email ----------
-  // ⚠️ REPLACE with your actual Gmail address
+  // ⚠️ REPLACE with your actual Gmail address (Primary Account — Deployment 1)
   EMAIL_SENDER_EMAIL: "your-email@gmail.com",
   EMAIL_SENDER_NAME: "CSBS Admin Portal",
   EMAIL_SUBJECT: "Your CSBS Admin Access Code",
@@ -47,7 +47,55 @@ var CONFIG = {
   EVENT_NAME: "STRAT-A-THON 1.0",
 
   // ---------- Events Sheet ----------
-  EVENTS_SHEET_NAME: "Events"
+  EVENTS_SHEET_NAME: "Events",
+
+  // ==========================================================================
+  // MULTI-SENDER EMAIL ROTATION CONFIG
+  // ==========================================================================
+  // HOW IT WORKS:
+  //   - Each sender account must be deployed as its own Apps Script Web App.
+  //   - Deployment 1 (this script) = Primary account (your-email@gmail.com)
+  //   - Deployment 2               = csbs.vitb1@gmail.com
+  //   - Deployment 3               = csbs.vitb2@gmail.com
+  //
+  //   The frontend ONLY calls Deployment 1 (primary URL). Deployment 1 decides
+  //   which account's quota is available and, if needed, delegates the actual
+  //   email send to the correct deployment URL via UrlFetchApp.
+  //
+  //   If the request includes ?senderId=2 or ?senderId=3 in the URL, the script
+  //   skips routing logic and just sends the email directly (acting as a delegate).
+  //
+  // SETUP STEPS:
+  //   1. Deploy this SAME script from Account 1 → copy URL → SENDER_ACCOUNTS[0].deploymentUrl
+  //   2. Deploy this SAME script from Account 2 → copy URL → SENDER_ACCOUNTS[1].deploymentUrl
+  //   3. Deploy this SAME script from Account 3 → copy URL → SENDER_ACCOUNTS[2].deploymentUrl
+  //   4. All three deploymentUrl values must be set below before going live.
+  //
+  // ⚠️ REPLACE the placeholder URLs below with your real deployment URLs.
+  // ==========================================================================
+
+  DAILY_EMAIL_LIMIT: 150, // Gmail Apps Script daily limit per account
+
+  SENDER_ACCOUNTS: [
+    {
+      id: 1,
+      email: "your-email@gmail.com",         // ⚠️ Replace: Primary account email
+      name: "CSBS Tech Fest 2026",
+      deploymentUrl: "YOUR_DEPLOYMENT_1_URL" // ⚠️ Replace: Deployment 1 Web App URL
+    },
+    {
+      id: 2,
+      email: "csbs.vitb1@gmail.com",         // ⚠️ Replace if different
+      name: "CSBS Tech Fest 2026",
+      deploymentUrl: "YOUR_DEPLOYMENT_2_URL" // ⚠️ Replace: Deployment 2 Web App URL
+    },
+    {
+      id: 3,
+      email: "csbs.vitb2@gmail.com",         // ⚠️ Replace if different
+      name: "CSBS Tech Fest 2026",
+      deploymentUrl: "YOUR_DEPLOYMENT_3_URL" // ⚠️ Replace: Deployment 3 Web App URL
+    }
+  ]
 };
 
 // Spreadsheet column headers
@@ -90,12 +138,12 @@ function buildResponse(status, message, data) {
 /**
  * Main POST handler — routes ALL actions
  * Actions: REGISTER, GET_SLOTS, SEND_OTP, VERIFY_OTP
+ *
+ * Special internal use: if body contains __delegate_email__ = true,
+ * this deployment acts as an email delegate and sends directly.
  */
 function doPost(e) {
   try {
-    // Parse request body
-    // Frontend sends Content-Type: text/plain to avoid CORS preflight,
-    // but the body is still valid JSON — parse it normally.
     var body;
     try {
       var raw = e.postData ? e.postData.contents : "";
@@ -105,6 +153,14 @@ function doPost(e) {
       body = JSON.parse(raw);
     } catch (parseErr) {
       return buildResponse("error", "Invalid JSON request body.", null);
+    }
+
+    // -----------------------------------------------------------------------
+    // DELEGATE MODE: Another deployment is asking THIS deployment to send email
+    // This path is ONLY reached when called internally by the primary deployment.
+    // -----------------------------------------------------------------------
+    if (body.__delegate_email__ === true) {
+      return handleDelegateEmailSend_(body);
     }
 
     var action = (body.action || "").toString().trim().toUpperCase();
@@ -155,7 +211,7 @@ function doPost(e) {
  */
 function doGet(e) {
   return buildResponse("success", "CSBS Backend API is running.", {
-    version: "2.3.0",
+    version: "2.4.0",
     actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS"]
   });
 }
@@ -984,6 +1040,209 @@ function parseFirestoreFields_(fields) {
 //                          EMAIL SERVICE
 // ============================================================================
 
+// ============================================================================
+// MULTI-SENDER EMAIL ROTATION
+// ============================================================================
+//
+// HOW IT WORKS (step by step):
+//
+//   1. getAvailableSender_() reads daily send counts from ScriptProperties.
+//      It checks each sender (1 → 2 → 3) and returns the first one that has
+//      not yet hit DAILY_EMAIL_LIMIT for the current calendar day (UTC).
+//
+//   2. recordEmailSent_(senderId) increments that sender's daily count.
+//
+//   3. routeEmail_(toAddresses, subject, plainText, htmlBody, senderAccount)
+//      - If senderAccount.id === 1 (this deployment) → send directly via GmailApp.
+//      - If senderAccount.id === 2 or 3 → POST to that account's deployment URL
+//        with __delegate_email__ = true. That deployment's doPost() sees the flag
+//        and calls GmailApp directly (which uses its own Gmail account).
+//
+//   4. handleDelegateEmailSend_(body) handles the incoming delegate request.
+//      It simply calls GmailApp.sendEmail() for each recipient and returns a
+//      JSON response. The primary deployment ignores this response (fire-and-
+//      forget is acceptable; errors are logged).
+//
+//   5. Daily counts reset automatically: each count key is stored with a date
+//      suffix (e.g. "emailCount_1_2025-07-14"). Keys from previous days are
+//      simply never matched again and have no effect.
+//
+// ============================================================================
+
+/**
+ * Returns the daily count storage key for a sender on today's UTC date.
+ * @param {number} senderId  1, 2, or 3
+ * @returns {string}
+ */
+function getEmailCountKey_(senderId) {
+  var today = Utilities.formatDate(new Date(), "UTC", "yyyy-MM-dd");
+  return "emailCount_" + senderId + "_" + today;
+}
+
+/**
+ * Returns the number of emails sent today by the given sender account.
+ * @param {number} senderId
+ * @returns {number}
+ */
+function getEmailCountToday_(senderId) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty(getEmailCountKey_(senderId));
+  return raw ? parseInt(raw) || 0 : 0;
+}
+
+/**
+ * Increments the daily email count for the given sender account by `qty`.
+ * @param {number} senderId
+ * @param {number} qty  Number of emails being sent in this batch (default 1)
+ */
+function recordEmailSent_(senderId, qty) {
+  var count = qty || 1;
+  var props = PropertiesService.getScriptProperties();
+  var key = getEmailCountKey_(senderId);
+  var current = parseInt(props.getProperty(key)) || 0;
+  props.setProperty(key, (current + count).toString());
+}
+
+/**
+ * Returns the first SENDER_ACCOUNTS entry that still has quota today,
+ * or null if all accounts are exhausted.
+ * @returns {Object|null}
+ */
+function getAvailableSender_() {
+  for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
+    var account = CONFIG.SENDER_ACCOUNTS[i];
+    var sent = getEmailCountToday_(account.id);
+    if (sent < CONFIG.DAILY_EMAIL_LIMIT) {
+      return account;
+    }
+    Logger.log("Sender " + account.id + " (" + account.email + ") has reached daily limit (" + sent + "/" + CONFIG.DAILY_EMAIL_LIMIT + "). Trying next.");
+  }
+  Logger.log("WARNING: All sender accounts have reached their daily email limit.");
+  return null;
+}
+
+/**
+ * Routes an email send request to the correct sender deployment.
+ * If the sender is Account 1 (this deployment), sends directly via GmailApp.
+ * If the sender is Account 2 or 3, delegates to their deployment URL via HTTP POST.
+ *
+ * @param {string[]} toAddresses  Array of recipient email addresses
+ * @param {string}   subject      Email subject line
+ * @param {string}   plainText    Plain-text fallback body
+ * @param {string}   htmlBody     HTML email body
+ * @param {Object}   senderAccount  Entry from CONFIG.SENDER_ACCOUNTS
+ */
+function routeEmail_(toAddresses, subject, plainText, htmlBody, senderAccount) {
+  if (senderAccount.id === 1) {
+    // This deployment IS Account 1 — send directly
+    for (var i = 0; i < toAddresses.length; i++) {
+      try {
+        GmailApp.sendEmail(toAddresses[i], subject, plainText, {
+          from: senderAccount.email,
+          name: senderAccount.name,
+          htmlBody: htmlBody
+        });
+      } catch (sendErr) {
+        Logger.log("Sender 1 failed to email " + toAddresses[i] + ": " + sendErr.toString());
+      }
+    }
+  } else {
+    // Delegate to the other deployment via HTTP POST
+    if (!senderAccount.deploymentUrl || senderAccount.deploymentUrl.indexOf("YOUR_DEPLOYMENT") !== -1) {
+      Logger.log("ERROR: Deployment URL for sender " + senderAccount.id + " is not configured. Email not sent.");
+      return;
+    }
+
+    var payload = JSON.stringify({
+      __delegate_email__: true,
+      toAddresses: toAddresses,
+      subject: subject,
+      plainText: plainText,
+      htmlBody: htmlBody
+    });
+
+    try {
+      UrlFetchApp.fetch(senderAccount.deploymentUrl, {
+        method: "post",
+        contentType: "text/plain", // Avoids CORS preflight; body is valid JSON
+        payload: payload,
+        muteHttpExceptions: true
+      });
+      Logger.log("Delegated " + toAddresses.length + " email(s) to sender " + senderAccount.id + " (" + senderAccount.email + ").");
+    } catch (fetchErr) {
+      Logger.log("Failed to delegate email to sender " + senderAccount.id + ": " + fetchErr.toString());
+    }
+  }
+}
+
+/**
+ * DELEGATE MODE handler — called when another deployment POSTs with __delegate_email__ = true.
+ * Sends the email directly via GmailApp (which uses THIS deployment's Gmail account).
+ * Returns a lightweight JSON response (ignored by the caller).
+ *
+ * @param {Object} body  Parsed request body
+ */
+function handleDelegateEmailSend_(body) {
+  var toAddresses = body.toAddresses || [];
+  var subject     = body.subject    || "";
+  var plainText   = body.plainText  || "";
+  var htmlBody    = body.htmlBody   || "";
+
+  if (!toAddresses.length || !subject) {
+    return buildResponse("error", "Missing required fields for delegate email send.", null);
+  }
+
+  var sent = 0;
+  var failed = 0;
+
+  for (var i = 0; i < toAddresses.length; i++) {
+    try {
+      GmailApp.sendEmail(toAddresses[i], subject, plainText, {
+        htmlBody: htmlBody
+      });
+      sent++;
+    } catch (sendErr) {
+      Logger.log("Delegate send failed for " + toAddresses[i] + ": " + sendErr.toString());
+      failed++;
+    }
+  }
+
+  return buildResponse("success", "Delegate email send complete.", { sent: sent, failed: failed });
+}
+
+/**
+ * Core internal function: pick available sender → route emails → record counts.
+ * This is the ONLY function called by the rest of the codebase for sending emails.
+ * Replaces the previous direct GmailApp.sendEmail() calls.
+ *
+ * @param {string[]} toAddresses  Array of recipient email addresses
+ * @param {string}   subject      Email subject line
+ * @param {string}   plainText    Plain-text fallback body
+ * @param {string}   htmlBody     HTML email body
+ */
+function sendEmailWithRotation_(toAddresses, subject, plainText, htmlBody) {
+  if (!toAddresses || toAddresses.length === 0) return;
+
+  var sender = getAvailableSender_();
+
+  if (!sender) {
+    Logger.log("ERROR: All email quotas exhausted. Email NOT sent to: " + toAddresses.join(", "));
+    return;
+  }
+
+  Logger.log("Using sender " + sender.id + " (" + sender.email + ") for " + toAddresses.length + " email(s). Daily count today: " + getEmailCountToday_(sender.id));
+
+  routeEmail_(toAddresses, subject, plainText, htmlBody, sender);
+
+  // Record all emails in this batch as sent from this account
+  recordEmailSent_(sender.id, toAddresses.length);
+}
+
+// ============================================================================
+// EMAIL COMPOSERS — unchanged logic, now call sendEmailWithRotation_() instead
+//                   of calling GmailApp.sendEmail() directly.
+// ============================================================================
+
 /**
  * Send registration confirmation email to ALL team members (leader + members)
  */
@@ -1006,19 +1265,21 @@ function sendRegistrationConfirmationEmail_(data) {
     }
   }
 
-  // Send to each unique email
   var emailList = Object.keys(allEmails);
-  for (var e = 0; e < emailList.length; e++) {
-    try {
-      GmailApp.sendEmail(emailList[e], subject, plainText, {
-        from: CONFIG.EMAIL_SENDER_EMAIL,
-        name: evtName,
-        htmlBody: htmlBody
-      });
-    } catch (sendErr) {
-      Logger.log("Failed to send email to " + emailList[e] + ": " + sendErr.toString());
-    }
-  }
+
+  // Route through sender rotation
+  sendEmailWithRotation_(emailList, subject, plainText, htmlBody);
+}
+
+/**
+ * Send OTP email with professional HTML format
+ */
+function sendOtpEmail_(email, otp, adminName) {
+  var htmlBody = getOtpEmailTemplate_(otp, adminName);
+  var plainText = "Your CSBS Admin Access Code: " + otp;
+
+  // Route through sender rotation
+  sendEmailWithRotation_([email], CONFIG.EMAIL_SUBJECT, plainText, htmlBody);
 }
 
 /**
@@ -1175,20 +1436,7 @@ function getRegistrationEmailTemplate_(data) {
 }
 
 /**
- * Send OTP email with professional HTML format
- */
-function sendOtpEmail_(email, otp, adminName) {
-  var htmlBody = getOtpEmailTemplate_(otp, adminName);
-
-  GmailApp.sendEmail(email, CONFIG.EMAIL_SUBJECT, "Your CSBS Admin Access Code: " + otp, {
-    from: CONFIG.EMAIL_SENDER_EMAIL,
-    name: CONFIG.EMAIL_SENDER_NAME,
-    htmlBody: htmlBody
-  });
-}
-
-/**
- * Professional HTML email template
+ * Professional HTML email template for OTP emails
  */
 function getOtpEmailTemplate_(otp, adminName) {
   return '<!DOCTYPE html>' +
@@ -1328,10 +1576,6 @@ function formatTimestamp_(isoString) {
 // ============================================================================
 // AUTHORIZATION — Run this FIRST from the Apps Script editor!
 // ============================================================================
-// Google Apps Script requires manual authorization for APIs like
-// SpreadsheetApp, GmailApp, UrlFetchApp, etc.
-// This function triggers the authorization prompt.
-// ============================================================================
 
 /**
  * ⚡ RUN THIS FIRST!
@@ -1350,12 +1594,12 @@ function AUTHORIZE_ALL_PERMISSIONS() {
   var drafts = GmailApp.getDrafts();
   Logger.log("✅ GmailApp: accessible (" + drafts.length + " drafts)");
 
-  // UrlFetchApp (for Firestore REST API)
+  // UrlFetchApp (for Firestore REST API + email delegation)
   var testUrl = "https://www.googleapis.com";
   UrlFetchApp.fetch(testUrl, { muteHttpExceptions: true });
   Logger.log("✅ UrlFetchApp: accessible");
 
-  // PropertiesService (for OTP storage)
+  // PropertiesService (for OTP storage + email counts)
   PropertiesService.getScriptProperties().getProperties();
   Logger.log("✅ PropertiesService: accessible");
 
@@ -1450,12 +1694,8 @@ function SETUP_SPREADSHEET() {
   sheet.setRowHeight(1, 36);
 
   // ---- Color-code header groups ----
-  // Registration Info (A-E): Primary blue (already set above)
-  // Leader Info (F-H): Slightly different shade
   sheet.getRange(1, 6, 1, 3).setBackground("#3a3fa0");
-  // Academic (I-K)
   sheet.getRange(1, 9, 1, 3).setBackground("#4a4fb0");
-  // Team Members (L-AE)
   if (REG_HEADERS.length > 11) {
     sheet.getRange(1, 12, 1, REG_HEADERS.length - 11).setBackground("#5a5fc0");
   }
@@ -1482,51 +1722,23 @@ function SETUP_SPREADSHEET() {
   protection.setWarningOnly(true);
 
   Logger.log("✅ Spreadsheet setup complete!");
-  Logger.log("");
-  Logger.log("📊 Sheet: " + CONFIG.SHEET_NAME);
-  Logger.log("📋 Columns: " + REG_HEADERS.length);
-  Logger.log("📌 Headers: " + REG_HEADERS.join(" | "));
-  Logger.log("");
-  Logger.log("Column Layout:");
-  Logger.log("  A: S.No");
-  Logger.log("  B: Timestamp");
-  Logger.log("  C: Registration ID  (e.g. CSBS-1771951494481)");
-  Logger.log("  D: Ticket Number    (e.g. TKT-1771951494481-LD4)");
-  Logger.log("  E: Team Name");
-  Logger.log("  F: Leader Name");
-  Logger.log("  G: Leader Email");
-  Logger.log("  H: Leader Phone");
-  Logger.log("  I: Leader Branch");
-  Logger.log("  J: Leader Section");
-  Logger.log("  K: Team Size");
-  Logger.log("  L-P: Member 2 (Name, Email, Phone, Branch, Section)");
-  Logger.log("  Q-U: Member 3 (Name, Email, Phone, Branch, Section)");
-  Logger.log("  V-Z: Member 4 (Name, Email, Phone, Branch, Section)");
-  Logger.log("  AA-AE: Member 5 (Name, Email, Phone, Branch, Section)");
+  Logger.log("Column Layout: A=S.No, B=Timestamp, C=Registration ID, D=Ticket Number, E=Team Name, F=Leader Name, G=Leader Email, H=Leader Phone, I=Leader Branch, J=Leader Section, K=Team Size, L-P=Member 2, Q-U=Member 3, V-Z=Member 4, AA-AE=Member 5");
 }
 
 // ============================================================================
-// TEST FUNCTIONS — Run from the Apps Script editor (▶ Run button)
-// ============================================================================
-// HOW TO USE:
-//   1. Select a function name from the dropdown next to ▶ Run
-//   2. Click ▶ Run
-//   3. Check the "Execution log" at the bottom for results
-//   4. First run will ask for permissions — click "Allow"
+// TEST FUNCTIONS
 // ============================================================================
 
 /**
  * TEST 1: Unified Health Check
- * Verifies the script is working, spreadsheet + Firebase are accessible.
  */
 function TEST_healthCheck() {
   Logger.log("=== UNIFIED BACKEND HEALTH CHECK ===");
   Logger.log("Firebase Project: " + CONFIG.FIREBASE_PROJECT_ID);
   Logger.log("Spreadsheet ID : " + CONFIG.SPREADSHEET_ID);
-  Logger.log("Sender Email   : " + CONFIG.EMAIL_SENDER_EMAIL);
   Logger.log("OTP Format     : " + CONFIG.OTP_PREFIX + "XXXX (" + CONFIG.OTP_LENGTH + " chars)");
   Logger.log("OTP Expiry     : " + CONFIG.OTP_EXPIRY_MINUTES + " minutes");
-  Logger.log("Lockout After  : " + CONFIG.MAX_FAILED_ATTEMPTS + " failed attempts (" + CONFIG.LOCKOUT_MINUTES + " min cooldown)");
+  Logger.log("Daily Limit    : " + CONFIG.DAILY_EMAIL_LIMIT + " emails/account");
   Logger.log("");
 
   // Test Spreadsheet access
@@ -1543,25 +1755,66 @@ function TEST_healthCheck() {
     Logger.log("❌ Spreadsheet error: " + err.toString());
   }
 
-  Logger.log("");
-
-  // Generate a sample OTP (not stored)
   var sampleOtp = generateOtp_();
   Logger.log("Sample OTP: " + sampleOtp);
+  Logger.log("✅ Health check passed!");
+}
+
+/**
+ * TEST — Email Sender Rotation Status
+ * Shows current daily counts for each sender account.
+ */
+function TEST_emailSenderStatus() {
+  Logger.log("=== EMAIL SENDER ROTATION STATUS ===");
+  Logger.log("Daily limit per account: " + CONFIG.DAILY_EMAIL_LIMIT);
   Logger.log("");
-  Logger.log("✅ Health check passed! All systems operational.");
+
+  for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
+    var account = CONFIG.SENDER_ACCOUNTS[i];
+    var sent = getEmailCountToday_(account.id);
+    var remaining = CONFIG.DAILY_EMAIL_LIMIT - sent;
+    var status = sent >= CONFIG.DAILY_EMAIL_LIMIT ? "❌ LIMIT REACHED" : "✅ Available";
+    Logger.log("Sender " + account.id + ": " + account.email);
+    Logger.log("  Status   : " + status);
+    Logger.log("  Sent today: " + sent + " / " + CONFIG.DAILY_EMAIL_LIMIT);
+    Logger.log("  Remaining : " + remaining);
+    Logger.log("  Deploy URL: " + account.deploymentUrl);
+    Logger.log("");
+  }
+
+  var available = getAvailableSender_();
+  if (available) {
+    Logger.log("👉 Next sender to be used: Sender " + available.id + " (" + available.email + ")");
+  } else {
+    Logger.log("⚠️  WARNING: All senders exhausted! No emails can be sent today.");
+  }
+}
+
+/**
+ * TEST — Reset email counts (for testing purposes only)
+ */
+function TEST_resetEmailCounts() {
+  Logger.log("=== RESETTING EMAIL COUNTS ===");
+  var props = PropertiesService.getScriptProperties();
+  var all = props.getProperties();
+
+  for (var key in all) {
+    if (key.indexOf("emailCount_") === 0) {
+      props.deleteProperty(key);
+      Logger.log("Deleted: " + key);
+    }
+  }
+
+  Logger.log("✅ All email count keys cleared.");
 }
 
 /**
  * TEST 2: Firestore Connection
- * Queries the admins collection to verify Firestore REST API access.
  */
 function TEST_firestoreConnection() {
-  var testEmail = "csbs.vitb@gmail.com"; // ← Change to a real admin email
-
+  var testEmail = "csbs.vitb@gmail.com";
   Logger.log("=== FIRESTORE CONNECTION TEST ===");
   Logger.log("Querying admins collection for: " + testEmail);
-  Logger.log("");
 
   var admin = getFirestoreAdmin_(testEmail);
 
@@ -1570,29 +1823,18 @@ function TEST_firestoreConnection() {
     Logger.log("   Name : " + (admin.name || "(not set)"));
     Logger.log("   Email: " + (admin.email || "(not set)"));
     Logger.log("   Role : " + (admin.role || "(not set)"));
-    Logger.log("");
-    Logger.log("Full document: " + JSON.stringify(admin, null, 2));
   } else {
     Logger.log("❌ No admin found with email: " + testEmail);
-    Logger.log("");
-    Logger.log("Possible reasons:");
-    Logger.log("  1. The email doesn't exist in Firestore 'admins' collection");
-    Logger.log("  2. The field name in Firestore is not 'email'");
-    Logger.log("  3. Firebase API key or project ID is wrong");
-    Logger.log("  4. Firestore security rules are blocking the request");
   }
 }
 
 /**
- * TEST 3: Send OTP (Full Flow)
- * ⚠️ This WILL send a real email!
+ * TEST 3: Send OTP
  */
 function TEST_sendOtp() {
-  var testEmail = "csbs.vitb@gmail.com"; // ← Change to the admin email to test
-
+  var testEmail = "csbs.vitb@gmail.com";
   Logger.log("=== SEND OTP TEST ===");
   Logger.log("Sending OTP to: " + testEmail);
-  Logger.log("");
 
   var fakeBody = { email: testEmail };
   var response = handleSendOtp_(fakeBody);
@@ -1600,38 +1842,24 @@ function TEST_sendOtp() {
 
   Logger.log("Status : " + result.status);
   Logger.log("Message: " + result.message);
-  Logger.log("Data   : " + JSON.stringify(result.data));
-  Logger.log("");
 
   if (result.status === "success") {
     var props = PropertiesService.getScriptProperties();
     var storedRaw = props.getProperty("otp_" + testEmail.toLowerCase());
     if (storedRaw) {
       var storedData = JSON.parse(storedRaw);
-      Logger.log("📧 Email sent! Check inbox of: " + testEmail);
-      Logger.log("--- Stored OTP (for testing) ---");
-      Logger.log("   OTP Code : " + storedData.otp);
-      Logger.log("   Expires  : " + storedData.expiry);
-      Logger.log("");
-      Logger.log("✅ Now run TEST_verifyOtp() with this code.");
+      Logger.log("OTP Code: " + storedData.otp);
+      Logger.log("Expires : " + storedData.expiry);
     }
-  } else {
-    Logger.log("❌ Send OTP failed.");
   }
 }
 
 /**
  * TEST 4: Verify OTP
- * ⚠️ Run TEST_sendOtp() FIRST, then paste the OTP code below.
  */
 function TEST_verifyOtp() {
-  var testEmail = "csbs.vitb@gmail.com"; // ← Same email used in TEST_sendOtp
-  var testOtp   = "CSBS-XXXX";           // ← Replace XXXX with the real code
-
-  Logger.log("=== VERIFY OTP TEST ===");
-  Logger.log("Email: " + testEmail);
-  Logger.log("OTP  : " + testOtp);
-  Logger.log("");
+  var testEmail = "csbs.vitb@gmail.com";
+  var testOtp   = "CSBS-XXXX"; // ← Replace with real OTP
 
   if (testOtp === "CSBS-XXXX") {
     Logger.log("⚠️  Replace 'CSBS-XXXX' with the real OTP from TEST_sendOtp log.");
@@ -1645,13 +1873,6 @@ function TEST_verifyOtp() {
   Logger.log("Status : " + result.status);
   Logger.log("Message: " + result.message);
   Logger.log("Data   : " + JSON.stringify(result.data, null, 2));
-  Logger.log("");
-
-  if (result.status === "success") {
-    Logger.log("✅ OTP verified! Admin Name: " + result.data.name + ", Role: " + result.data.role);
-  } else {
-    Logger.log("❌ Verification failed.");
-  }
 }
 
 /**
@@ -1668,27 +1889,19 @@ function TEST_registration() {
     teamName: "Code Warriors",
     teamSize: 3,
     teamMembers: [
-      { name: "Member Two", email: "member2@vishnu.edu.in", phone: "9876543211", branch: "CSE", section: "B" },
-      { name: "Member Three", email: "member3@vishnu.edu.in", phone: "9876543212", branch: "IT", section: "A" }
+      { name: "Member Two",   email: "member2@vishnu.edu.in", phone: "9876543211", branch: "CSE", section: "B" },
+      { name: "Member Three", email: "member3@vishnu.edu.in", phone: "9876543212", branch: "IT",  section: "A" }
     ],
     timestamp: new Date().toISOString()
   };
 
   Logger.log("=== REGISTRATION TEST ===");
-  Logger.log("Submitting: " + JSON.stringify(fakeBody, null, 2));
-  Logger.log("");
-
   var response = handleRegister_(fakeBody);
   var result = JSON.parse(response.getContent());
 
   Logger.log("Status : " + result.status);
   Logger.log("Message: " + result.message);
   Logger.log("Data   : " + JSON.stringify(result.data));
-
-  if (result.status === "success") {
-    Logger.log("");
-    Logger.log("✅ Check your spreadsheet — a new row should appear!");
-  }
 }
 
 /**
@@ -1707,11 +1920,7 @@ function TEST_getSlots() {
  */
 function TEST_checkLockout() {
   var testEmail = "csbs.vitb@gmail.com";
-
   Logger.log("=== LOCKOUT STATUS CHECK ===");
-  Logger.log("Email: " + testEmail);
-  Logger.log("");
-
   var locked = isLockedOut_(testEmail);
   Logger.log("Locked out: " + (locked ? "YES ❌" : "NO ✅"));
 
@@ -1720,7 +1929,6 @@ function TEST_checkLockout() {
   if (raw) {
     var data = JSON.parse(raw);
     Logger.log("Failed attempts: " + data.count + " / " + CONFIG.MAX_FAILED_ATTEMPTS);
-    Logger.log("Last attempt   : " + data.lastAttempt);
   } else {
     Logger.log("No failed attempts recorded.");
   }
@@ -1728,28 +1936,23 @@ function TEST_checkLockout() {
 
 /**
  * TEST 8: Clear All Test Data
- * Removes stored OTPs and lockout data for a specific email.
  */
 function TEST_clearTestData() {
   var testEmail = "csbs.vitb@gmail.com";
-
   Logger.log("=== CLEAR TEST DATA ===");
-  Logger.log("Clearing data for: " + testEmail);
-  Logger.log("");
 
   var props = PropertiesService.getScriptProperties();
   var emailKey = testEmail.toLowerCase();
 
-  var hadOtp = props.getProperty("otp_" + emailKey) !== null;
+  var hadOtp     = props.getProperty("otp_" + emailKey) !== null;
   var hadLockout = props.getProperty("lockout_" + emailKey) !== null;
 
   props.deleteProperty("otp_" + emailKey);
   props.deleteProperty("lockout_" + emailKey);
 
-  Logger.log("OTP data    : " + (hadOtp ? "DELETED ✅" : "None found"));
+  Logger.log("OTP data    : " + (hadOtp     ? "DELETED ✅" : "None found"));
   Logger.log("Lockout data: " + (hadLockout ? "DELETED ✅" : "None found"));
-  Logger.log("");
-  Logger.log("✅ Test data cleared. Ready for a fresh test run.");
+  Logger.log("✅ Test data cleared.");
 }
 
 /**
@@ -1757,7 +1960,6 @@ function TEST_clearTestData() {
  */
 function TEST_viewAllProperties() {
   Logger.log("=== ALL SCRIPT PROPERTIES ===");
-  Logger.log("");
 
   var props = PropertiesService.getScriptProperties();
   var all = props.getProperties();
@@ -1769,8 +1971,6 @@ function TEST_viewAllProperties() {
   }
 
   Logger.log("Total properties: " + keys.length);
-  Logger.log("");
-
   for (var i = 0; i < keys.length; i++) {
     var key = keys[i];
     Logger.log("--- " + key + " ---");
@@ -1780,6 +1980,5 @@ function TEST_viewAllProperties() {
     } catch (e) {
       Logger.log(all[key]);
     }
-    Logger.log("");
   }
 }
