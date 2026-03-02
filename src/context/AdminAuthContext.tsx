@@ -20,6 +20,7 @@ import {
 interface AdminAuthContextType {
   session: AdminSession | null;
   isLoggedIn: boolean;
+  isLoading: boolean;
   login: (session: AdminSession) => void;
   logout: () => void;
 }
@@ -29,14 +30,14 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(
 );
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AdminSession | null>(null);
+  // Synchronous initializer — reads localStorage before first render
+  // so ProtectedRoute sees the real auth state immediately.
+  const [session, setSession] = useState<AdminSession | null>(() => getSession());
+  const [isLoading, setIsLoading] = useState(true);
 
-  // On mount, check for existing session
+  // Mark loading complete after first render
   useEffect(() => {
-    const existing = getSession();
-    if (existing) {
-      setSession(existing);
-    }
+    setIsLoading(false);
   }, []);
 
   const login = useCallback((newSession: AdminSession) => {
@@ -54,6 +55,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         isLoggedIn: session !== null,
+        isLoading,
         login,
         logout,
       }}
