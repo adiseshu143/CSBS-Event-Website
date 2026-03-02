@@ -107,8 +107,12 @@ var REG_HEADERS = [
   "Member 2 Name", "Member 2 Email", "Member 2 Phone", "Member 2 Branch", "Member 2 Section",
   "Member 3 Name", "Member 3 Email", "Member 3 Phone", "Member 3 Branch", "Member 3 Section",
   "Member 4 Name", "Member 4 Email", "Member 4 Phone", "Member 4 Branch", "Member 4 Section",
-  "Member 5 Name", "Member 5 Email", "Member 5 Phone", "Member 5 Branch", "Member 5 Section"
+  "Member 5 Name", "Member 5 Email", "Member 5 Phone", "Member 5 Branch", "Member 5 Section",
+  "Verified"
 ];
+
+// Index of the "Verified" column (1-based for Sheets API)
+var VERIFIED_COL = REG_HEADERS.length; // 32
 
 // Events sheet headers
 var EVENT_HEADERS = [
@@ -180,6 +184,12 @@ function doPost(e) {
       case "DELETE_EVENT":
         return handleDeleteEvent_(body);
 
+      // --- Ticket Verification (Admin QR Scanner) ---
+      case "VERIFY_TICKET":
+        return handleVerifyTicket_(body);
+      case "SET_VERIFICATION":
+        return handleSetVerification_(body);
+
       // --- Admin OTP Auth ---
       case "SEND_OTP":
         return handleSendOtp_(body);
@@ -201,8 +211,8 @@ function doPost(e) {
  */
 function doGet(e) {
   return buildResponse("success", "CSBS Backend API is running.", {
-    version: "3.0.0",
-    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS"]
+    version: "3.1.0",
+    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS", "VERIFY_TICKET", "SET_VERIFICATION"]
   });
 }
 
@@ -253,6 +263,113 @@ function handleGetRegistrationStatus_() {
     changedBy: changedBy,
     changedAt: changedAt
   });
+}
+
+// ============================================================================
+//                   TICKET VERIFICATION SERVICE (ADMIN QR)
+// ============================================================================
+
+/**
+ * VERIFY_TICKET — Scan a ticket (by ticketNumber) and mark as verified.
+ * Body: { action: "VERIFY_TICKET", ticketNumber: "TKT-..." }
+ *
+ * Returns:
+ *   - success + registration data if found & newly verified
+ *   - success + alreadyVerified: true if ticket was already verified
+ *   - error if ticket not found
+ */
+function handleVerifyTicket_(body) {
+  var ticketNumber = (body.ticketNumber || "").toString().trim();
+  if (!ticketNumber) {
+    return buildResponse("error", "Ticket number is required.", null);
+  }
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return buildResponse("error", "No registrations found.", null);
+  }
+
+  var lastRow = sheet.getLastRow();
+  var numCols = Math.max(VERIFIED_COL, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    var rowTicket = (data[i][3] || "").toString().trim(); // Column D = Ticket Number
+    if (rowTicket === ticketNumber) {
+      var rowIndex = i + 2; // +2: 1 for header, 1 for 0-index
+      var currentVerified = (data[i][VERIFIED_COL - 1] || "").toString().toUpperCase();
+
+      if (currentVerified === "TRUE") {
+        // Already verified — return info but don't re-verify
+        return buildResponse("success", "Ticket already verified.", {
+          alreadyVerified: true,
+          ticketNumber: rowTicket,
+          registrationId: (data[i][2] || "").toString(),
+          teamName: (data[i][4] || "").toString(),
+          leaderName: (data[i][5] || "").toString(),
+          isVerified: true
+        });
+      }
+
+      // Mark as verified
+      sheet.getRange(rowIndex, VERIFIED_COL).setValue("TRUE");
+
+      return buildResponse("success", "Ticket verified successfully!", {
+        alreadyVerified: false,
+        ticketNumber: rowTicket,
+        registrationId: (data[i][2] || "").toString(),
+        teamName: (data[i][4] || "").toString(),
+        leaderName: (data[i][5] || "").toString(),
+        isVerified: true
+      });
+    }
+  }
+
+  return buildResponse("error", "Invalid Ticket — no registration found for: " + ticketNumber, null);
+}
+
+/**
+ * SET_VERIFICATION — Manually set verification status for a registration.
+ * Body: { action: "SET_VERIFICATION", ticketNumber: "TKT-...", verified: true/false }
+ */
+function handleSetVerification_(body) {
+  var ticketNumber = (body.ticketNumber || "").toString().trim();
+  var verified = body.verified;
+
+  if (!ticketNumber) {
+    return buildResponse("error", "Ticket number is required.", null);
+  }
+  if (typeof verified !== "boolean") {
+    return buildResponse("error", "'verified' field (boolean) is required.", null);
+  }
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return buildResponse("error", "No registrations found.", null);
+  }
+
+  var lastRow = sheet.getLastRow();
+  var numCols = Math.max(VERIFIED_COL, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    var rowTicket = (data[i][3] || "").toString().trim();
+    if (rowTicket === ticketNumber) {
+      var rowIndex = i + 2;
+      sheet.getRange(rowIndex, VERIFIED_COL).setValue(verified ? "TRUE" : "FALSE");
+
+      return buildResponse("success", verified ? "Marked as verified." : "Marked as unverified.", {
+        ticketNumber: rowTicket,
+        registrationId: (data[i][2] || "").toString(),
+        teamName: (data[i][4] || "").toString(),
+        isVerified: verified
+      });
+    }
+  }
+
+  return buildResponse("error", "Ticket not found: " + ticketNumber, null);
 }
 
 // ============================================================================
@@ -572,7 +689,8 @@ function handleGetRegistrations_() {
         eventName: CONFIG.EVENT_NAME,
         teamSize: parseInt(row[10]) || 1,
         members: members,
-        registeredBy: (row[5] || "").toString()
+        registeredBy: (row[5] || "").toString(),
+        isVerified: (row[VERIFIED_COL - 1] || "").toString().toUpperCase() === "TRUE"
       });
     }
 

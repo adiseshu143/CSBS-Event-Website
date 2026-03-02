@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { setVerificationStatus } from '../services/googleAppsScript';
 import './Registrations.css';
 
 /* ===== Types ===== */
@@ -21,10 +22,13 @@ interface Registration {
   teamSize: number;
   members: Member[];
   registeredBy: string;
+  isVerified: boolean;
 }
 
 interface RegistrationsProps {
   onBack: () => void;
+  /** Increment to force a data refresh from parent */
+  refreshKey?: number;
 }
 
 /* ===== Constants ===== */
@@ -68,11 +72,12 @@ const fetchRegistrations = async (): Promise<Registration[]> => {
 };
 
 /* ===== Component ===== */
-export default function Registrations({ onBack }: RegistrationsProps) {
+export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsProps) {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [togglingTicket, setTogglingTicket] = useState<string | null>(null);
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
@@ -92,7 +97,7 @@ export default function Registrations({ onBack }: RegistrationsProps) {
     }
   }, []);
 
-  // Initial load + auto-refresh polling
+  // Initial load + auto-refresh polling + parent-triggered refresh
   useEffect(() => {
     loadData();
 
@@ -101,7 +106,7 @@ export default function Registrations({ onBack }: RegistrationsProps) {
     }, REFRESH_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   /* --- Back button header (always shown) --- */
   const headerBar = (
@@ -177,18 +182,78 @@ export default function Registrations({ onBack }: RegistrationsProps) {
   }
 
   /* --- Cards --- */
+  const handleToggleVerification = async (ticket: string, currentlyVerified: boolean) => {
+    setTogglingTicket(ticket);
+    try {
+      const result = await setVerificationStatus(ticket, !currentlyVerified);
+      if (result.status === 'success') {
+        // Optimistic update
+        setRegistrations((prev) =>
+          prev.map((r) =>
+            r.ticketNumber === ticket
+              ? { ...r, isVerified: !currentlyVerified }
+              : r,
+          ),
+        );
+      }
+    } catch {
+      // Silently fail — next refresh will correct
+    } finally {
+      setTogglingTicket(null);
+    }
+  };
+
   return (
     <div className="reg-section">
       {headerBar}
 
       <div className="reg-section-header">
         <h2 className="reg-section-title">Registrations</h2>
-        <span className="reg-count-badge">{registrations.length} Teams</span>
+        <div className="reg-header-badges">
+          <span className="reg-count-badge">{registrations.length} Teams</span>
+          <span className="reg-count-badge reg-verified-count">
+            ✅ {registrations.filter((r) => r.isVerified).length} Verified
+          </span>
+        </div>
       </div>
 
       <div className="reg-grid">
         {registrations.map((reg) => (
-          <div className="reg-card" key={reg.registrationId}>
+          <div
+            className={`reg-card ${reg.isVerified ? 'reg-card-verified' : 'reg-card-unverified'}`}
+            key={reg.registrationId}
+          >
+            {/* --- Verification badge --- */}
+            <div className={`reg-verify-strip ${reg.isVerified ? 'is-verified' : 'is-not-verified'}`}>
+              <span className="reg-verify-icon">
+                {reg.isVerified ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
+              </span>
+              <span className="reg-verify-text">
+                {reg.isVerified ? 'Verified' : 'Not Verified'}
+              </span>
+              <button
+                className={`reg-verify-toggle ${reg.isVerified ? 'btn-unverify' : 'btn-verify'}`}
+                onClick={() => handleToggleVerification(reg.ticketNumber, reg.isVerified)}
+                disabled={togglingTicket === reg.ticketNumber}
+                title={reg.isVerified ? 'Mark as unverified' : 'Mark as verified'}
+              >
+                {togglingTicket === reg.ticketNumber
+                  ? '...'
+                  : reg.isVerified
+                    ? 'Unverify'
+                    : 'Verify'}
+              </button>
+            </div>
+
             {/* --- Top section --- */}
             <div className="reg-card-top">
               <div className="reg-card-row">

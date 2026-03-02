@@ -110,6 +110,17 @@
   font-family: var(--font-body, 'Inter', sans-serif);
 }
 
+.reg-header-badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.reg-verified-count {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
 /* --- Grid --- */
 .reg-grid {
   display: grid;
@@ -435,4 +446,104 @@
   .reg-meta {
     gap: 0.5rem 0.8rem;
   }
+
+  .reg-header-badges {
+    flex-wrap: wrap;
+  }
+}
+
+/* ================================================
+   Verification Strip & Card States
+   ================================================ */
+
+/* Verified card has subtle green left border */
+.reg-card-verified {
+  border-left: 4px solid #16a34a;
+}
+
+.reg-card-unverified {
+  border-left: 4px solid #e5e7eb;
+}
+
+/* Verification strip at top of each card */
+.reg-verify-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.55rem 1.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.reg-verify-strip.is-verified {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  color: #15803d;
+}
+
+.reg-verify-strip.is-not-verified {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #b91c1c;
+}
+
+.reg-verify-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.is-verified .reg-verify-icon {
+  background: rgba(22, 163, 74, 0.15);
+}
+
+.is-not-verified .reg-verify-icon {
+  background: rgba(185, 28, 28, 0.1);
+}
+
+.reg-verify-text {
+  flex: 1;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.reg-verify-toggle {
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.reg-verify-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-verify {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
+
+.btn-verify:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.btn-unverify {
+  background: transparent;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.btn-unverify:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.08);
+  border-color: #f87171;
 }

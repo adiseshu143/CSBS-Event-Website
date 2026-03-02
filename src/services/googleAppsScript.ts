@@ -206,3 +206,54 @@ export const prepareFormData = (
   if (eventDescription) data.eventDescription = eventDescription;
   return data;
 };
+
+/* ===== Ticket Verification (Admin QR Scanner) ===== */
+
+export interface VerifyTicketResponse {
+  status: 'success' | 'error';
+  message: string;
+  data?: {
+    alreadyVerified?: boolean;
+    ticketNumber?: string;
+    registrationId?: string;
+    teamName?: string;
+    leaderName?: string;
+    isVerified?: boolean;
+  };
+}
+
+/**
+ * Verify a ticket by scanning its QR code (ticket number).
+ * Marks the registration as verified in the spreadsheet.
+ */
+export const verifyTicket = async (
+  ticketNumber: string,
+): Promise<VerifyTicketResponse> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'VERIFY_TICKET', ticketNumber }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  return JSON.parse(text) as VerifyTicketResponse;
+};
+
+/**
+ * Manually set verification status for a registration (admin only).
+ */
+export const setVerificationStatus = async (
+  ticketNumber: string,
+  verified: boolean,
+): Promise<VerifyTicketResponse> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'SET_VERIFICATION', ticketNumber, verified }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  return JSON.parse(text) as VerifyTicketResponse;
+};

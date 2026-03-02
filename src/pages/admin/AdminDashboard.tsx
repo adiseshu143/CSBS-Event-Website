@@ -7,6 +7,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getRegistrationStatus, setRegistrationStatus } from '../../services';
 import type { RegistrationStatus } from '../../services';
 import Registrations from '../../components/Registrations';
+import AdminQRScanner from '../../components/AdminQRScanner';
 import EventManagement from './EventManagement';
 import './AdminDashboard.css';
 
@@ -22,6 +23,7 @@ export default function AdminDashboard() {
   const [regStatusLoading, setRegStatusLoading] = useState(true);
   const [regToggling, setRegToggling] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [scannerRefreshKey, setScannerRefreshKey] = useState(0);
 
   const loadRegStatus = useCallback(async () => {
     try {
@@ -212,7 +214,10 @@ export default function AdminDashboard() {
         ) : view === 'events' ? (
           <EventManagement onBack={() => setView('home')} />
         ) : (
-          <Registrations onBack={() => setView('home')} />
+          <>
+            <AdminQRScanner onVerified={() => setScannerRefreshKey((k) => k + 1)} />
+            <Registrations onBack={() => setView('home')} refreshKey={scannerRefreshKey} />
+          </>
         )}
       </main>
     </div>
