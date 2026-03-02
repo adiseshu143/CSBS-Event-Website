@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { getRegistrationStatus, setRegistrationStatus } from '../../services';
+import { sendQREmails } from '../../services/googleAppsScript';
 import type { RegistrationStatus } from '../../services';
 import Registrations from '../../components/Registrations';
 import AdminQRScanner from '../../components/AdminQRScanner';
@@ -24,6 +25,33 @@ export default function AdminDashboard() {
   const [regToggling, setRegToggling] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [scannerRefreshKey, setScannerRefreshKey] = useState(0);
+
+  /* --- QR Email state --- */
+  const [qrEmailSending, setQrEmailSending] = useState(false);
+  const [qrEmailResult, setQrEmailResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleSendQREmails = async (forceResend = false) => {
+    setQrEmailSending(true);
+    setQrEmailResult(null);
+    try {
+      const res = await sendQREmails(forceResend);
+      if (res.status === 'success') {
+        setQrEmailResult({
+          type: 'success',
+          message: `Sent: ${res.data.sent}, Skipped: ${res.data.skipped}, Failed: ${res.data.failed} (Total: ${res.data.total})`,
+        });
+      } else {
+        setQrEmailResult({ type: 'error', message: res.message });
+      }
+    } catch (err) {
+      setQrEmailResult({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to send QR emails.',
+      });
+    } finally {
+      setQrEmailSending(false);
+    }
+  };
 
   const loadRegStatus = useCallback(async () => {
     try {
@@ -216,6 +244,56 @@ export default function AdminDashboard() {
         ) : (
           <>
             <AdminQRScanner onVerified={() => setScannerRefreshKey((k) => k + 1)} />
+
+            {/* --- Send QR Emails Panel --- */}
+            <div className="qr-email-panel">
+              <div className="qr-email-panel-header">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="16" x="2" y="4" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+                <div>
+                  <h3>Send QR Code Emails</h3>
+                  <p>Generate QR codes and email them to every team member. Each member receives a personalised email with the team&apos;s QR code.</p>
+                </div>
+              </div>
+
+              <div className="qr-email-panel-actions">
+                <button
+                  className="qr-email-btn primary"
+                  onClick={() => handleSendQREmails(false)}
+                  disabled={qrEmailSending}
+                >
+                  {qrEmailSending ? (
+                    <><span className="qr-email-spinner" /> Sending...</>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>
+                      </svg>
+                      Send New QR Emails
+                    </>
+                  )}
+                </button>
+                <button
+                  className="qr-email-btn secondary"
+                  onClick={() => handleSendQREmails(true)}
+                  disabled={qrEmailSending}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+                  </svg>
+                  Resend All
+                </button>
+              </div>
+
+              {qrEmailResult && (
+                <div className={`qr-email-result ${qrEmailResult.type}`}>
+                  {qrEmailResult.type === 'success' ? '✅' : '❌'} {qrEmailResult.message}
+                </div>
+              )}
+            </div>
+
             <Registrations onBack={() => setView('home')} refreshKey={scannerRefreshKey} />
           </>
         )}

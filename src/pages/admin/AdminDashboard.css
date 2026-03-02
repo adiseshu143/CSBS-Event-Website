@@ -4,7 +4,7 @@
 
 .admin-dash-page {
   min-height: 100vh;
-  background: #f7f7fb;
+  background: linear-gradient(160deg, #f5f5fb 0%, #f7f7fb 50%, #faf8f7 100%);
   font-family: var(--font-body, 'Inter', sans-serif);
 }
 
@@ -13,10 +13,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #2e3190;
+  background: linear-gradient(135deg, #2e3190 0%, #1a1d5e 100%);
   color: #fff;
   padding: 0.9rem 2rem;
-  box-shadow: 0 2px 12px rgba(46, 49, 144, 0.2);
+  box-shadow: 0 4px 20px rgba(46, 49, 144, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .admin-dash-brand {
@@ -71,7 +74,10 @@
   font-family: var(--font-heading, 'Bebas Neue', sans-serif);
   font-size: 2rem;
   letter-spacing: 3px;
-  color: #2e3190;
+  background: linear-gradient(135deg, #2e3190 0%, #6366f1 50%, #eb4d28 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin: 0 0 0.3rem;
 }
 
@@ -94,18 +100,36 @@
 
 .admin-dash-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 1.8rem 1.5rem;
   box-shadow: 8px 8px 0px rgba(183, 28, 28, 0.548),
               0 10px 30px rgba(46, 49, 144, 0.1);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-dash-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2e3190, #eb4d28);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.admin-dash-card:hover::before {
+  opacity: 1;
 }
 
 .admin-dash-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 10px 12px 0px rgba(183, 28, 28, 0.6),
-              0 14px 40px rgba(46, 49, 144, 0.14);
+  transform: translateY(-6px);
+  box-shadow: 10px 14px 0px rgba(183, 28, 28, 0.6),
+              0 16px 48px rgba(46, 49, 144, 0.16);
 }
 
 .admin-dash-card-icon {
@@ -148,36 +172,477 @@
   margin: 0;
 }
 
+/* --- QR Email Panel --- */
+
+.qr-email-panel {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin: 1rem 0 0;
+  box-shadow: 0 2px 16px rgba(46, 49, 144, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.qr-email-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2e3190, #eb4d28);
+}
+
+.qr-email-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 1.2rem;
+}
+
+.qr-email-panel-header svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #2e3190;
+}
+
+.qr-email-panel-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.qr-email-panel-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.qr-email-panel-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.qr-email-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.65rem 1.4rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+
+.qr-email-btn:active {
+  transform: scale(0.97);
+}
+
+.qr-email-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.qr-email-btn.primary {
+  background: linear-gradient(135deg, #2e3190, #3a3fb0);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(46, 49, 144, 0.25);
+}
+
+.qr-email-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3a3fb0, #4a4dc0);
+  box-shadow: 0 6px 20px rgba(46, 49, 144, 0.4);
+  transform: translateY(-1px);
+}
+
+.qr-email-btn.secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.qr-email-btn.secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.qr-email-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: qrEmailSpin 0.7s linear infinite;
+}
+
+@keyframes qrEmailSpin {
+  to { transform: rotate(360deg); }
+}
+
+.qr-email-result {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.87rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.qr-email-result.success {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.qr-email-result.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
 /* --- Responsive --- */
-@media (max-width: 600px) {
+
+/* Tablet */
+@media (max-width: 768px) {
   .admin-dash-header {
     padding: 0.8rem 1.2rem;
   }
 
   .admin-dash-brand {
     font-size: 1.1rem;
+    gap: 8px;
   }
 
   .admin-dash-content {
-    padding: 1.5rem 1rem;
+    padding: 1.8rem 1.2rem;
   }
 
   .admin-dash-welcome h1 {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
+    letter-spacing: 2px;
+  }
+
+  .admin-dash-welcome p {
+    font-size: 0.82rem;
+  }
+
+  .admin-dash-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .admin-dash-card {
+    padding: 1.5rem 1.2rem;
   }
 
   .reg-status-control {
-    padding: 1rem;
+    padding: 1.1rem 1.2rem;
   }
 
   .reg-status-info {
     flex-direction: column;
     align-items: stretch;
+    gap: 1rem;
   }
 
   .reg-status-toggle-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .qr-email-panel {
+    margin: 1rem 0 0;
+    padding: 1.2rem 1.4rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .admin-dash-header {
+    padding: 0.7rem 0.9rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .admin-dash-brand {
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+  }
+
+  .admin-dash-brand svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .admin-dash-user {
+    gap: 8px;
+  }
+
+  .admin-dash-name {
+    font-size: 0.75rem;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-dash-logout {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.72rem;
+    gap: 4px;
+  }
+
+  .admin-dash-logout svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .admin-dash-content {
+    padding: 1.2rem 0.8rem;
+  }
+
+  .admin-dash-welcome h1 {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+  }
+
+  .admin-dash-welcome p {
+    font-size: 0.78rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .admin-dash-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .admin-dash-card {
+    padding: 1.3rem 1.1rem;
+  }
+
+  .admin-dash-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  .admin-dash-card-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .admin-dash-card h3 {
+    font-size: 1.1rem;
+    letter-spacing: 1.5px;
+  }
+
+  .admin-dash-card p {
+    font-size: 0.76rem;
+  }
+
+  .reg-status-control {
+    padding: 0.9rem;
+    border-radius: 10px;
+  }
+
+  .reg-status-icon {
+    font-size: 1.3rem;
+  }
+
+  .reg-status-title {
+    font-size: 0.95rem;
+  }
+
+  .reg-status-desc {
+    font-size: 0.75rem;
+  }
+
+  .reg-status-meta {
+    font-size: 0.65rem;
+  }
+
+  .reg-status-toggle-btn {
+    font-size: 0.78rem;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Confirmation dialog mobile */
+  .reg-confirm-dialog {
+    padding: 1.5rem;
+    border-radius: 14px;
+    width: 92%;
+  }
+
+  .reg-confirm-icon {
+    font-size: 2rem;
+  }
+
+  .reg-confirm-dialog h3 {
+    font-size: 1.1rem;
+  }
+
+  .reg-confirm-dialog p {
+    font-size: 0.78rem;
+  }
+
+  .reg-confirm-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .reg-confirm-cancel,
+  .reg-confirm-ok {
+    width: 100%;
+    padding: 0.55rem 1rem;
+  }
+
+  .qr-email-panel {
+    margin: 0.8rem 0 0;
+    padding: 1rem;
+  }
+
+  .qr-email-panel-header {
+    gap: 10px;
+  }
+
+  .qr-email-panel-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .qr-email-panel-header p {
+    font-size: 0.78rem;
+  }
+
+  .qr-email-panel-actions {
+    flex-direction: column;
+  }
+
+  .qr-email-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.82rem;
+    padding: 0.6rem 1rem;
+  }
+
+  .qr-email-result {
+    font-size: 0.8rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .admin-dash-header {
+    padding: 0.6rem 0.7rem;
+  }
+
+  .admin-dash-brand {
+    font-size: 0.85rem;
+  }
+
+  .admin-dash-name {
+    display: none;
+  }
+
+  .admin-dash-content {
+    padding: 1rem 0.6rem;
+  }
+
+  .qr-email-panel {
+    margin: 0.6rem 0 0;
+    padding: 0.8rem;
+  }
+
+  .admin-dash-welcome h1 {
+    font-size: 1.25rem;
+  }
+
+  .reg-status-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .admin-dash-card {
+    padding: 1.1rem 0.9rem;
+  }
+
+  .admin-dash-card:hover {
+    transform: none;
+    box-shadow: 8px 8px 0px rgba(183, 28, 28, 0.548),
+                0 10px 30px rgba(46, 49, 144, 0.1);
+  }
+
+  .admin-dash-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+
+  .admin-dash-card h3 {
+    font-size: 1rem;
+    letter-spacing: 1px;
+  }
+
+  .admin-dash-card p {
+    font-size: 0.72rem;
+  }
+
+  .qr-email-panel-header h3 {
+    font-size: 0.88rem;
+  }
+
+  .qr-email-panel-header p {
+    font-size: 0.72rem;
+  }
+
+  .qr-email-btn {
+    font-size: 0.78rem;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .reg-status-control {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .reg-status-title {
+    font-size: 0.88rem;
+    letter-spacing: 1.5px;
+  }
+
+  .reg-status-desc {
+    font-size: 0.7rem;
+  }
+
+  .reg-status-toggle-btn {
+    font-size: 0.72rem;
+    padding: 0.45rem 0.8rem;
+  }
+
+  .reg-confirm-dialog {
+    padding: 1.2rem;
+    border-radius: 12px;
+    width: 95%;
+  }
+
+  .reg-confirm-icon {
+    font-size: 1.8rem;
+  }
+
+  .reg-confirm-dialog h3 {
+    font-size: 1rem;
+  }
+
+  .reg-confirm-dialog p {
+    font-size: 0.72rem;
   }
 }
 
@@ -185,12 +650,25 @@
    Registration Status Control
    ================================================ */
 .reg-status-control {
-  background: #fff;
-  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 16px;
   padding: 1.4rem 1.6rem;
   margin-bottom: 1.8rem;
   box-shadow: 0 2px 16px rgba(46, 49, 144, 0.08);
   border-left: 4px solid #2e3190;
+  position: relative;
+  overflow: hidden;
+}
+
+.reg-status-control::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at top right, rgba(46, 49, 144, 0.03), transparent 70%);
+  pointer-events: none;
 }
 
 .reg-status-info {

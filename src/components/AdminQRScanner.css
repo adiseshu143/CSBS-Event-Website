@@ -3,12 +3,14 @@
    ================================================ */
 
 .qr-scanner-section {
-  background: #fff;
-  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1.8rem;
   box-shadow: 0 2px 16px rgba(46, 49, 144, 0.08);
   border-left: 4px solid #2e3190;
+  position: relative;
+  overflow: hidden;
 }
 
 /* --- Header --- */
@@ -105,41 +107,56 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0.6rem 1.4rem;
-  border-radius: 10px;
+  padding: 0.7rem 1.6rem;
+  border-radius: 12px;
   font-size: 0.85rem;
   font-weight: 600;
   font-family: var(--font-body, 'Inter', sans-serif);
   cursor: pointer;
   border: 2px solid transparent;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .qr-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .qr-btn-start {
-  background: #2e3190;
+  background: linear-gradient(135deg, #2e3190, #3b40b0);
   color: #fff;
-  border-color: #2e3190;
+  border-color: transparent;
 }
 
 .qr-btn-start:hover:not(:disabled) {
-  background: #23266e;
-  border-color: #23266e;
+  background: linear-gradient(135deg, #23266e, #2e3190);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(46, 49, 144, 0.3);
+}
+
+.qr-btn-start:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(46, 49, 144, 0.2);
 }
 
 .qr-btn-stop {
-  background: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
   color: #b91c1c;
   border-color: #fca5a5;
 }
 
 .qr-btn-stop:hover:not(:disabled) {
-  background: #fee2e2;
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
   border-color: #f87171;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+}
+
+.qr-btn-stop:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
 }
 
 .qr-scanning-indicator {
@@ -170,8 +187,9 @@
   align-items: flex-start;
   gap: 12px;
   padding: 1rem 1.2rem;
-  border-radius: 10px;
-  animation: qr-slideIn 0.3s ease;
+  border-radius: 14px;
+  animation: qr-slideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .qr-result-icon {
@@ -257,11 +275,114 @@
 }
 
 /* --- Responsive --- */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .qr-scanner-section {
+    padding: 1.3rem 1.1rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .qr-scanner-viewport {
+    max-width: 300px;
+  }
+
+  .qr-scanner-title-row h3 {
+    font-size: 1.05rem;
+  }
+
+  .qr-result {
+    padding: 0.85rem 1rem;
+  }
+
+  .qr-result-details {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
+/* Mobile */
 @media (max-width: 480px) {
   .qr-scanner-section {
-    padding: 1.2rem 1rem;
+    padding: 1rem 0.85rem;
+    border-radius: 10px;
+    margin-bottom: 1.2rem;
   }
+
   .qr-scanner-viewport {
     max-width: 100%;
+    min-height: 180px;
+    border-radius: 8px;
+  }
+
+  .qr-scanner-reader video {
+    border-radius: 8px;
+  }
+
+  .qr-scanner-title-row h3 {
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+  }
+
+  .qr-scanner-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .qr-scanner-controls {
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .qr-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.55rem 1rem;
+    font-size: 0.82rem;
+  }
+
+  .qr-result {
+    flex-direction: column;
+    gap: 8px;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .qr-result-body strong {
+    font-size: 0.82rem;
+  }
+
+  .qr-result-details {
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.72rem;
+  }
+
+  .qr-result-ticket {
+    font-size: 0.68rem;
+    word-break: break-all;
+  }
+
+  .qr-scanner-placeholder {
+    padding: 2rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .qr-scanner-section {
+    padding: 0.85rem 0.7rem;
+  }
+
+  .qr-scanner-title-row {
+    gap: 6px;
+  }
+
+  .qr-scanner-title-row h3 {
+    font-size: 0.88rem;
+  }
+
+  .qr-btn {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.8rem;
   }
 }

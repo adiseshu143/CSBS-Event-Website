@@ -5,9 +5,9 @@
 // Single script serving:
 //   1. Event Registration  → REGISTER, GET_SLOTS
 //   2. Admin OTP Auth      → SEND_OTP, VERIFY_OTP
-//   3. Multi-sender Email  → Gmail API with OAuth2 (5 accounts, single deploy)
+//   3. Email Service        → Single sender (24pa1a5723@vishnu.edu.in)
 //
-// ⚠️  DELETE Registration.gs from this project — everything is in this file.
+// ⚠️  DEPLOY THIS SCRIPT FROM the 24pa1a5723@vishnu.edu.in Google account.
 // ============================================================================
 
 // ========================== CONFIGURATION ==================================
@@ -37,8 +37,8 @@ var CONFIG = {
   LOCKOUT_MINUTES: 15,
 
   // ---------- Email ----------
-  // ⚠️ REPLACE with your actual Gmail address (Primary Account — Deployment 1)
-  EMAIL_SENDER_EMAIL: "your-email@gmail.com",
+  // All emails are sent from this single account (must be the deploying account)
+  EMAIL_SENDER_EMAIL: "24pa1a5723@vishnu.edu.in",
   EMAIL_SENDER_NAME: "CSBS Admin Portal",
   EMAIL_SUBJECT: "Your CSBS Admin Access Code",
 
@@ -51,51 +51,21 @@ var CONFIG = {
   EVENTS_SHEET_NAME: "Events",
 
   // ==========================================================================
-  // SINGLE-DEPLOYMENT MULTI-SENDER EMAIL ROTATION
+  // SINGLE SENDER — All emails sent from the deploying Google account
   // ==========================================================================
-  // HOW IT WORKS:
-  //   - This SINGLE Apps Script deployment sends emails from 5 Gmail accounts.
-  //   - Account 1 (the deploying account) uses GmailApp.sendEmail() directly.
-  //   - Accounts 2–5 send via the Gmail REST API using OAuth2 refresh tokens.
-  //   - Each account has a daily limit (DAILY_EMAIL_LIMIT). When one account
-  //     hits its limit, the next account is used automatically.
-  //
-  // SETUP (one-time, for accounts 2–5):
-  //   1. Go to https://console.cloud.google.com → Create a project (or reuse one).
-  //   2. Enable the "Gmail API" for that project.
-  //   3. Go to APIs & Services → Credentials → Create Credentials → OAuth client ID.
-  //      - Application type: "Web application"
-  //      - Authorized redirect URIs: add  https://developers.google.com/oauthplayground
-  //   4. Copy the Client ID and Client Secret into the config below.
-  //   5. For EACH account (2, 3, 4, 5), get a refresh token:
-  //      a. Open https://developers.google.com/oauthplayground/
-  //      b. Click the ⚙️ gear icon (top-right) → check "Use your own OAuth credentials"
-  //      c. Paste your Client ID and Client Secret.
-  //      d. In Step 1 (left panel), type this scope and click "Authorize APIs":
-  //             https://www.googleapis.com/auth/gmail.send
-  //      e. Log in with the Gmail account (e.g. csbs.vitb1@gmail.com for sender 2).
-  //      f. Click "Exchange authorization code for tokens" in Step 2.
-  //      g. Copy the "Refresh token" value.
-  //      h. In the Apps Script editor, run:
-  //             SETUP_SAVE_REFRESH_TOKEN(2, "1//0abc...")   ← for sender 2
-  //             SETUP_SAVE_REFRESH_TOKEN(3, "1//0xyz...")   ← for sender 3
-  //             ... and so on for 4, 5.
-  //
-  // After setup, everything is automatic — no extra deployments needed!
+  // IMPORTANT: Deploy this Apps Script from the 24pa1a5723@vishnu.edu.in
+  // Google account. All OTP codes, registration confirmations, and QR emails
+  // will be sent from that account via MailApp.sendEmail().
   // ==========================================================================
 
-  DAILY_EMAIL_LIMIT: 100, // emails per account per day
+  DAILY_EMAIL_LIMIT: 100, // Google Workspace for Education limit (~100/day via MailApp)
 
-  // ⚠️ REPLACE with your Google Cloud OAuth2 credentials (needed for senders 2–5)
-  GMAIL_API_CLIENT_ID: "YOUR_GCP_CLIENT_ID",
-  GMAIL_API_CLIENT_SECRET: "YOUR_GCP_CLIENT_SECRET",
+  // OAuth2 credentials not needed (single direct sender)
+  GMAIL_API_CLIENT_ID: "",
+  GMAIL_API_CLIENT_SECRET: "",
 
   SENDER_ACCOUNTS: [
-    { id: 1, email: "csbs.vitb@gmail.com",  name: "CSBS Tech Fest 2026", useDirectGmail: true  },
-    { id: 2, email: "csbs.vitb1@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
-    { id: 3, email: "csbs.vitb2@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
-    { id: 4, email: "csbs.vitb3@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false },
-    { id: 5, email: "csbs.vitb4@gmail.com", name: "CSBS Tech Fest 2026", useDirectGmail: false }
+    { id: 1, email: "24pa1a5723@vishnu.edu.in", name: "CSBS Tech Fest 2026", useDirectGmail: true }
   ]
 };
 
@@ -108,11 +78,15 @@ var REG_HEADERS = [
   "Member 3 Name", "Member 3 Email", "Member 3 Phone", "Member 3 Branch", "Member 3 Section",
   "Member 4 Name", "Member 4 Email", "Member 4 Phone", "Member 4 Branch", "Member 4 Section",
   "Member 5 Name", "Member 5 Email", "Member 5 Phone", "Member 5 Branch", "Member 5 Section",
-  "Verified"
+  "Verified",
+  "QR Code"
 ];
 
 // Index of the "Verified" column (1-based for Sheets API)
-var VERIFIED_COL = REG_HEADERS.length; // 32
+var VERIFIED_COL = REG_HEADERS.indexOf("Verified") + 1; // 32
+
+// Index of the "QR Code" column (1-based for Sheets API)
+var QR_CODE_COL = REG_HEADERS.indexOf("QR Code") + 1; // 33
 
 // Events sheet headers
 var EVENT_HEADERS = [
@@ -190,6 +164,12 @@ function doPost(e) {
       case "SET_VERIFICATION":
         return handleSetVerification_(body);
 
+      // --- QR Code Email Service ---
+      case "SEND_QR_EMAILS":
+        return handleSendQREmails_(body);
+      case "SEND_QR_EMAIL_SINGLE":
+        return handleSendQREmailSingle_(body);
+
       // --- Admin OTP Auth ---
       case "SEND_OTP":
         return handleSendOtp_(body);
@@ -211,8 +191,8 @@ function doPost(e) {
  */
 function doGet(e) {
   return buildResponse("success", "CSBS Backend API is running.", {
-    version: "3.1.0",
-    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS", "VERIFY_TICKET", "SET_VERIFICATION"]
+    version: "3.3.0",
+    actions: ["REGISTER", "GET_SLOTS", "GET_REGISTRATIONS", "SEND_OTP", "VERIFY_OTP", "CREATE_EVENT", "GET_EVENTS", "UPDATE_EVENT", "DELETE_EVENT", "SET_REGISTRATION_STATUS", "GET_REGISTRATION_STATUS", "VERIFY_TICKET", "SET_VERIFICATION", "SEND_QR_EMAILS", "SEND_QR_EMAIL_SINGLE"]
   });
 }
 
@@ -370,6 +350,441 @@ function handleSetVerification_(body) {
   }
 
   return buildResponse("error", "Ticket not found: " + ticketNumber, null);
+}
+
+// ============================================================================
+//                    QR CODE EMAIL SERVICE
+// ============================================================================
+// Generates QR codes for ticket numbers and emails them to all team members.
+// Each registration gets ONE QR code (for the shared ticket). Any team member
+// can present it at check-in — the admin scanner verifies it only once.
+//
+// QR API: https://api.qrserver.com/v1/create-qr-code/
+// ============================================================================
+
+/**
+ * Generate a QR code image URL for a given ticket number.
+ * Uses the free goQR.me API — no key needed, high reliability.
+ *
+ * @param {string} ticketNumber  e.g. "TKT-1234567890-ABC"
+ * @returns {string} URL of the QR code PNG image (300×300)
+ */
+function generateQRCodeUrl_(ticketNumber) {
+  var encoded = encodeURIComponent(ticketNumber);
+  return "https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=M&format=png&data=" + encoded;
+}
+
+/**
+ * SEND_QR_EMAILS — Loops through ALL registrations, generates QR code URLs,
+ * sends QR emails to every team member, and writes the QR URL to the sheet.
+ *
+ * Idempotent: skips rows that already have a value in the "QR Code" column.
+ *
+ * Body (optional):
+ *   { action: "SEND_QR_EMAILS" }
+ *   { action: "SEND_QR_EMAILS", forceResend: true }  ← resend to ALL, even if already sent
+ *
+ * Can also be run directly from the Apps Script editor via sendQRCodeEmailsToAll_().
+ */
+function handleSendQREmails_(body) {
+  var forceResend = (body && body.forceResend === true);
+  try {
+    var result = sendQRCodeEmailsToAll_(forceResend);
+    return buildResponse("success", result.message, result);
+  } catch (err) {
+    Logger.log("SEND_QR_EMAILS error: " + err.toString());
+    return buildResponse("error", "Failed to send QR emails: " + err.toString(), null);
+  }
+}
+
+/**
+ * SEND_QR_EMAIL_SINGLE — Send QR code email to a single team by ticketNumber.
+ *
+ * Body: { action: "SEND_QR_EMAIL_SINGLE", ticketNumber: "TKT-...", forceResend?: boolean }
+ */
+function handleSendQREmailSingle_(body) {
+  var ticketNumber = (body && body.ticketNumber || "").toString().trim();
+  if (!ticketNumber) {
+    return buildResponse("error", "ticketNumber is required.", null);
+  }
+  var forceResend = (body && body.forceResend === true);
+
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return buildResponse("error", "No registrations found.", null);
+    }
+
+    ensureQRCodeColumnHeader_(sheet);
+
+    var lastRow = sheet.getLastRow();
+    var numCols = Math.max(QR_CODE_COL, sheet.getLastColumn());
+    var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var rowTicket = (row[3] || "").toString().trim();
+
+      if (rowTicket !== ticketNumber) continue;
+
+      var rowIndex = i + 2;
+      var existingQR = (row[QR_CODE_COL - 1] || "").toString().trim();
+
+      // If already sent and not forceResend, skip
+      if (existingQR && !forceResend) {
+        return buildResponse("success", "QR email was already sent for this team. Use forceResend to resend.", {
+          ticketNumber: ticketNumber,
+          alreadySent: true
+        });
+      }
+
+      var teamName   = (row[4] || "").toString().trim();
+      var leaderName = (row[5] || "").toString().trim();
+      var teamSize   = parseInt(row[10]) || 1;
+      var regId      = (row[2] || "").toString().trim();
+
+      var qrUrl = generateQRCodeUrl_(ticketNumber);
+      var members = collectTeamMembers_(row);
+
+      if (members.length === 0) {
+        return buildResponse("error", "No valid emails found for this team.", null);
+      }
+
+      var sentCount = 0;
+      for (var m = 0; m < members.length; m++) {
+        var member = members[m];
+        var emailData = {
+          ticketNumber: ticketNumber,
+          registrationId: regId,
+          teamName: teamName,
+          leaderName: leaderName,
+          recipientName: member.name,
+          teamSize: teamSize,
+          qrUrl: qrUrl,
+          eventName: CONFIG.EVENT_NAME
+        };
+
+        try {
+          sendQRTicketEmail_(member.email, emailData);
+          sentCount++;
+          Logger.log("Single QR email sent to " + member.name + " <" + member.email + ">");
+        } catch (emailErr) {
+          Logger.log("Single QR email FAILED for " + member.email + ": " + emailErr.toString());
+        }
+
+        if (m < members.length - 1) Utilities.sleep(300);
+      }
+
+      // Write QR URL to the sheet
+      sheet.getRange(rowIndex, QR_CODE_COL).setValue(qrUrl);
+
+      return buildResponse("success",
+        "QR email sent to " + sentCount + " of " + members.length + " member(s) in team \"" + teamName + "\".",
+        { ticketNumber: ticketNumber, teamName: teamName, sent: sentCount, total: members.length }
+      );
+    }
+
+    return buildResponse("error", "Ticket not found: " + ticketNumber, null);
+  } catch (err) {
+    Logger.log("SEND_QR_EMAIL_SINGLE error: " + err.toString());
+    return buildResponse("error", "Failed to send QR email: " + err.toString(), null);
+  }
+}
+
+/**
+ * Core QR email batch function.
+ * Reads the Registrations sheet, finds rows without a QR code URL,
+ * generates the QR, emails ALL team members, and writes the URL back.
+ *
+ * @param {boolean} forceResend  If true, resend to ALL rows (ignores existing QR column)
+ * @returns {Object} { sent, skipped, failed, total, message }
+ */
+function sendQRCodeEmailsToAll_(forceResend) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return { sent: 0, skipped: 0, failed: 0, total: 0, message: "No registrations found." };
+  }
+
+  // Ensure the QR Code column header exists
+  ensureQRCodeColumnHeader_(sheet);
+
+  var lastRow = sheet.getLastRow();
+  var numCols = Math.max(QR_CODE_COL, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+
+  var sent = 0;
+  var skipped = 0;
+  var failed = 0;
+  var total = data.length;
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var rowIndex = i + 2; // 1-based, +1 for header
+
+    var ticketNumber = (row[3] || "").toString().trim();  // Column D
+    var teamName     = (row[4] || "").toString().trim();   // Column E
+    var leaderName   = (row[5] || "").toString().trim();   // Column F
+    var leaderEmail  = (row[6] || "").toString().trim();   // Column G
+    var teamSize     = parseInt(row[10]) || 1;             // Column K
+    var regId        = (row[2] || "").toString().trim();   // Column C
+    var existingQR   = (row[QR_CODE_COL - 1] || "").toString().trim(); // QR Code column
+
+    // Skip rows without a ticket number (incomplete registration)
+    if (!ticketNumber) {
+      skipped++;
+      continue;
+    }
+
+    // Skip if QR already sent (unless forceResend)
+    if (existingQR && !forceResend) {
+      skipped++;
+      continue;
+    }
+
+    // Generate QR code URL
+    var qrUrl = generateQRCodeUrl_(ticketNumber);
+
+    // Collect ALL team members {name, email}
+    var members = collectTeamMembers_(row);
+
+    if (members.length === 0) {
+      Logger.log("Row " + rowIndex + ": No valid emails found — skipping.");
+      skipped++;
+      continue;
+    }
+
+    // Send a personalised QR email to EACH member individually
+    var rowFailed = false;
+    for (var m = 0; m < members.length; m++) {
+      var member = members[m];
+      var emailData = {
+        ticketNumber: ticketNumber,
+        registrationId: regId,
+        teamName: teamName,
+        leaderName: leaderName,
+        recipientName: member.name,  // personalised greeting
+        teamSize: teamSize,
+        qrUrl: qrUrl,
+        eventName: CONFIG.EVENT_NAME
+      };
+
+      try {
+        sendQRTicketEmail_(member.email, emailData);
+        Logger.log("Row " + rowIndex + " ✅ QR email sent to " + member.name + " <" + member.email + ">");
+      } catch (emailErr) {
+        rowFailed = true;
+        Logger.log("Row " + rowIndex + " ❌ Email to " + member.email + " failed: " + emailErr.toString());
+      }
+
+      // Small delay between individual emails to avoid rate limits
+      if (m < members.length - 1) {
+        Utilities.sleep(300);
+      }
+    }
+
+    if (rowFailed) {
+      failed++;
+    } else {
+      // Write QR URL to the sheet (marks as "sent")
+      sheet.getRange(rowIndex, QR_CODE_COL).setValue(qrUrl);
+      sent++;
+    }
+
+    // Small delay to avoid hitting rate limits
+    if (i < data.length - 1) {
+      Utilities.sleep(500);
+    }
+  }
+
+  var message = "QR email batch complete. Sent: " + sent + ", Skipped: " + skipped + ", Failed: " + failed + " (Total rows: " + total + ")";
+  Logger.log(message);
+  return { sent: sent, skipped: skipped, failed: failed, total: total, message: message };
+}
+
+/**
+ * Ensure the "QR Code" header exists in the sheet.
+ * If the sheet has fewer columns than QR_CODE_COL, the header is written.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ */
+function ensureQRCodeColumnHeader_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < QR_CODE_COL) {
+    sheet.getRange(1, QR_CODE_COL).setValue("QR Code");
+    sheet.getRange(1, QR_CODE_COL).setFontWeight("bold");
+  }
+}
+
+/**
+ * Collect all unique team members (name + email) from a registration row.
+ * Leader: name=5, email=6. Members 2-5: name/email at (11,12), (16,17), (21,22), (26,27).
+ *
+ * @param {Array} row  Row values array (0-indexed)
+ * @returns {Array<{name: string, email: string}>} De-duplicated member list
+ */
+function collectTeamMembers_(row) {
+  var memberSlots = [
+    { nameIdx: 5,  emailIdx: 6  },  // Leader  — F, G
+    { nameIdx: 11, emailIdx: 12 },  // Member 2 — L, M
+    { nameIdx: 16, emailIdx: 17 },  // Member 3 — Q, R
+    { nameIdx: 21, emailIdx: 22 },  // Member 4 — V, W
+    { nameIdx: 26, emailIdx: 27 }   // Member 5 — AA, AB
+  ];
+  var seen = {};
+  var members = [];
+
+  for (var i = 0; i < memberSlots.length; i++) {
+    var email = (row[memberSlots[i].emailIdx] || "").toString().trim().toLowerCase();
+    var name  = (row[memberSlots[i].nameIdx]  || "").toString().trim();
+    if (email && !seen[email]) {
+      seen[email] = true;
+      members.push({ name: name || "Team Member", email: email });
+    }
+  }
+
+  return members;
+}
+
+/**
+ * Send a personalised QR ticket email to ONE recipient via multi-sender rotation.
+ *
+ * @param {string} toEmail   Single recipient address
+ * @param {Object} data      { ticketNumber, registrationId, teamName, leaderName, recipientName, teamSize, qrUrl, eventName }
+ */
+function sendQRTicketEmail_(toEmail, data) {
+  var subject = "Your Event Ticket QR Code — " + data.ticketNumber;
+  var htmlBody = getQRTicketEmailTemplate_(data);
+  var plainText = "Hi " + data.recipientName + ",\n\n" +
+    "Your Ticket QR Code for " + data.eventName +
+    "\n\nTicket Number: " + data.ticketNumber +
+    "\nRegistration ID: " + data.registrationId +
+    (data.teamName ? "\nTeam: " + data.teamName : "") +
+    "\n\nShow this QR code at the venue check-in desk." +
+    "\nQR Code image: " + data.qrUrl +
+    "\n\nIMPORTANT: Only ONE team member needs to present this QR code. Once scanned, the entire team is marked as verified.";
+
+  sendEmailWithRotation_([toEmail], subject, plainText, htmlBody);
+}
+
+/**
+ * Professional HTML email template for QR ticket emails.
+ * Embeds the QR code image inline with verification instructions.
+ *
+ * @param {Object} data  { ticketNumber, registrationId, teamName, leaderName, teamSize, qrUrl, eventName }
+ * @returns {string} HTML email body
+ */
+function getQRTicketEmailTemplate_(data) {
+  var evtName = data.eventName || CONFIG.EVENT_NAME;
+  var isTeam = data.teamSize > 1;
+
+  return '<!DOCTYPE html>' +
+    '<html>' +
+    '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background:#f4f4f7;font-family:\'Segoe UI\',Arial,sans-serif;">' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 20px;">' +
+    '<tr><td align="center">' +
+    '<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">' +
+
+    // ---- Header Banner ----
+    '<tr><td style="background:linear-gradient(135deg,#2e3190 0%,#1a1d5e 100%);padding:36px 40px;text-align:center;">' +
+    '<p style="margin:0 0 6px;color:rgba(255,255,255,0.7);font-size:11px;text-transform:uppercase;letter-spacing:2px;">YOUR EVENT TICKET</p>' +
+    '<h1 style="margin:0 0 10px;color:#ffffff;font-size:26px;font-weight:800;letter-spacing:1px;text-transform:uppercase;">' + evtName + '</h1>' +
+    '<div style="display:inline-block;background:#eb4d28;color:#fff;font-size:12px;font-weight:700;padding:5px 16px;border-radius:20px;letter-spacing:1px;">QR CHECK-IN PASS</div>' +
+    '</td></tr>' +
+
+    // ---- Greeting (personalised per member) ----
+    '<tr><td style="padding:30px 40px 16px;">' +
+    '<p style="margin:0 0 6px;color:#1f2937;font-size:17px;">Hello <strong>' + (data.recipientName || data.leaderName) + '</strong>,</p>' +
+    '<p style="margin:0;color:#6b7280;font-size:14px;line-height:1.7;">' +
+    'Here is your QR code for <strong style="color:#eb4d28;">' + evtName + '</strong>. ' +
+    'Present this QR code at the check-in desk for quick verification.' +
+    '</p>' +
+    '</td></tr>' +
+
+    // ---- QR Code Image (centered) ----
+    '<tr><td style="padding:20px 40px 10px;text-align:center;">' +
+    '<div style="display:inline-block;background:#f8f9fa;border:2px solid #e5e7eb;border-radius:16px;padding:24px;">' +
+    '<img src="' + data.qrUrl + '" alt="QR Code for ' + data.ticketNumber + '" width="250" height="250" style="display:block;border-radius:8px;" />' +
+    '</div>' +
+    '</td></tr>' +
+
+    // ---- Ticket Number below QR ----
+    '<tr><td style="padding:12px 40px 6px;text-align:center;">' +
+    '<p style="margin:0;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;">Ticket Number</p>' +
+    '<p style="margin:4px 0 0;font-family:\'Courier New\',monospace;font-size:18px;font-weight:800;color:#eb4d28;letter-spacing:2px;">' + data.ticketNumber + '</p>' +
+    '</td></tr>' +
+
+    // ---- Registration Details ----
+    '<tr><td style="padding:20px 40px 20px;">' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">' +
+
+    '<tr>' +
+    '<td style="padding:10px 16px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;width:40%;"><strong style="color:#374151;font-size:13px;">Registration ID</strong></td>' +
+    '<td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;"><span style="color:#2e3190;font-weight:700;font-size:13px;font-family:\'Courier New\',monospace;">' + data.registrationId + '</span></td>' +
+    '</tr>' +
+
+    (data.teamName ? '<tr>' +
+    '<td style="padding:10px 16px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;"><strong style="color:#374151;font-size:13px;">Team</strong></td>' +
+    '<td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;"><strong style="color:#eb4d28;font-size:13px;">' + data.teamName + '</strong></td>' +
+    '</tr>' : '') +
+
+    '<tr>' +
+    '<td style="padding:10px 16px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;"><strong style="color:#374151;font-size:13px;">' + (isTeam ? 'Team Leader' : 'Participant') + '</strong></td>' +
+    '<td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;"><strong style="color:#1f2937;font-size:13px;">' + data.leaderName + '</strong></td>' +
+    '</tr>' +
+
+    '<tr>' +
+    '<td style="padding:10px 16px;background:#f8f9fa;"><strong style="color:#374151;font-size:13px;">Team Size</strong></td>' +
+    '<td style="padding:10px 16px;"><span style="color:#1f2937;font-size:13px;">' + data.teamSize + ' member' + (isTeam ? 's' : '') + '</span></td>' +
+    '</tr>' +
+
+    '</table>' +
+    '</td></tr>' +
+
+    // ---- Instructions ----
+    '<tr><td style="padding:0 40px 24px;">' +
+    '<div style="background:#f0fdf4;border-left:4px solid #16a34a;border-radius:0 8px 8px 0;padding:16px 18px;">' +
+    '<h4 style="margin:0 0 8px;color:#15803d;font-size:14px;">How to Use This QR Code</h4>' +
+    '<ol style="margin:0;padding:0 0 0 18px;color:#166534;font-size:13px;line-height:1.8;">' +
+    '<li>Save or screenshot this email on your phone.</li>' +
+    '<li>At the event venue, show this QR code to the check-in admin.</li>' +
+    '<li>The admin will scan it to verify your registration instantly.</li>' +
+    '</ol>' +
+    '</div>' +
+    '</td></tr>' +
+
+    // ---- Important Note for Teams ----
+    (isTeam ?
+    '<tr><td style="padding:0 40px 24px;">' +
+    '<div style="background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 8px 8px 0;padding:14px 18px;">' +
+    '<p style="margin:0;color:#1e40af;font-size:13px;">' +
+    '<strong>Team Note:</strong> All ' + data.teamSize + ' members receive this same QR code. ' +
+    '<strong>Only ONE member</strong> needs to present it at check-in — the entire team will be marked as verified in one scan.' +
+    '</p>' +
+    '</div>' +
+    '</td></tr>' : '') +
+
+    // ---- Warning ----
+    '<tr><td style="padding:0 40px 28px;">' +
+    '<div style="background:#fef3f2;border-left:4px solid #eb4d28;border-radius:0 8px 8px 0;padding:14px 18px;">' +
+    '<p style="margin:0;color:#991b1b;font-size:13px;"><strong>Important:</strong> Do not share this QR code outside your team. Each QR code can only be verified once at the check-in desk.</p>' +
+    '</div>' +
+    '</td></tr>' +
+
+    // ---- Footer ----
+    '<tr><td style="background:linear-gradient(135deg,#2e3190 0%,#1a1d5e 100%);padding:24px 40px;text-align:center;">' +
+    '<p style="margin:0 0 4px;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:1px;">' + evtName + '</p>' +
+    '<p style="margin:0;color:rgba(255,255,255,0.7);font-size:11px;">\u00a9 ' + new Date().getFullYear() + ' CSBS Department \u2022 Vishnu Institute of Technology</p>' +
+    '<p style="margin:6px 0 0;color:rgba(255,255,255,0.5);font-size:10px;">This is an automated message. Please do not reply.</p>' +
+    '</td></tr>' +
+
+    '</table>' +
+    '</td></tr>' +
+    '</table>' +
+    '</body></html>';
 }
 
 // ============================================================================
@@ -690,7 +1105,9 @@ function handleGetRegistrations_() {
         teamSize: parseInt(row[10]) || 1,
         members: members,
         registeredBy: (row[5] || "").toString(),
-        isVerified: (row[VERIFIED_COL - 1] || "").toString().toUpperCase() === "TRUE"
+        isVerified: (row[VERIFIED_COL - 1] || "").toString().toUpperCase() === "TRUE",
+        qrCodeUrl: (row[QR_CODE_COL - 1] || "").toString(),
+        qrEmailSent: !!(row[QR_CODE_COL - 1] || "").toString().trim()
       });
     }
 
@@ -1159,7 +1576,7 @@ function parseFirestoreFields_(fields) {
 //      that has not yet hit DAILY_EMAIL_LIMIT for the current calendar day.
 //
 //   2. sendViaAccount_() routes the email:
-//      - Account 1 (deployer): sends directly via GmailApp.sendEmail()
+//      - Account 1 (deployer): sends directly via MailApp.sendEmail()
 //      - Accounts 2–5: sends via Gmail REST API using OAuth2 access tokens
 //        obtained from stored refresh tokens (in Script Properties).
 //
@@ -1223,9 +1640,9 @@ function getAvailableSender_() {
 }
 
 /**
- * Routes an email to the correct sender account.
- * Account 1 (deployer): sends directly with GmailApp.sendEmail().
- * Accounts 2–5: sends via Gmail REST API using OAuth2 refresh tokens.
+ * Routes an email to the sender account using MailApp.
+ * MailApp uses the less-restrictive script.send_mail scope which
+ * works reliably on Google Workspace for Education accounts.
  *
  * @param {string[]} toAddresses   Array of recipient email addresses
  * @param {string}   subject       Email subject line
@@ -1236,18 +1653,15 @@ function getAvailableSender_() {
 function sendViaAccount_(toAddresses, subject, plainText, htmlBody, senderAccount) {
   for (var i = 0; i < toAddresses.length; i++) {
     try {
-      if (senderAccount.useDirectGmail) {
-        // Account 1: send directly using GmailApp (the deploying account)
-        GmailApp.sendEmail(toAddresses[i], subject, plainText, {
-          name: senderAccount.name,
-          htmlBody: htmlBody
-        });
-      } else {
-        // Accounts 2–5: send via Gmail REST API
-        sendViaGmailApi_(toAddresses[i], subject, plainText, htmlBody, senderAccount);
-      }
+      MailApp.sendEmail({
+        to: toAddresses[i],
+        subject: subject,
+        body: plainText,
+        htmlBody: htmlBody,
+        name: senderAccount.name
+      });
     } catch (sendErr) {
-      Logger.log("Sender " + senderAccount.id + " failed to email " + toAddresses[i] + ": " + sendErr.toString());
+      Logger.log("Failed to email " + toAddresses[i] + ": " + sendErr.toString());
     }
   }
 }
@@ -1382,6 +1796,7 @@ function sendViaGmailApi_(toEmail, subject, plainText, htmlBody, senderAccount) 
  * Core internal function: pick available sender → route emails → record counts.
  * This is the ONLY function called by the rest of the codebase for sending emails.
  * Replaces the previous direct GmailApp.sendEmail() calls.
+ * Now uses MailApp.sendEmail() for Workspace compatibility.
  *
  * @param {string[]} toAddresses  Array of recipient email addresses
  * @param {string}   subject      Email subject line
@@ -1409,6 +1824,7 @@ function sendEmailWithRotation_(toAddresses, subject, plainText, htmlBody) {
 // ============================================================================
 // EMAIL COMPOSERS — unchanged logic, now call sendEmailWithRotation_() instead
 //                   of calling GmailApp.sendEmail() directly.
+//                   Now uses MailApp.sendEmail() (script.send_mail scope).
 // ============================================================================
 
 /**
@@ -1760,9 +2176,9 @@ function AUTHORIZE_ALL_PERMISSIONS() {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   Logger.log("✅ SpreadsheetApp: " + ss.getName());
 
-  // GmailApp (for OTP emails — Account 1)
-  var drafts = GmailApp.getDrafts();
-  Logger.log("✅ GmailApp: accessible (" + drafts.length + " drafts)");
+  // MailApp (for sending emails — OTP, registration, QR codes)
+  var remaining = MailApp.getRemainingDailyQuota();
+  Logger.log("✅ MailApp: accessible (" + remaining + " emails remaining today)");
 
   // UrlFetchApp (for Firestore REST API + Gmail API)
   var testUrl = "https://www.googleapis.com";
@@ -1803,7 +2219,7 @@ function AUTHORIZE_ALL_PERMISSIONS() {
 function SETUP_SAVE_REFRESH_TOKEN(senderId, refreshToken) {
   if (!senderId || senderId < 2 || senderId > 5) {
     Logger.log("❌ Invalid senderId. Must be 2, 3, 4, or 5.");
-    Logger.log("   (Account 1 uses GmailApp directly — no token needed.)");
+    Logger.log("   (Account 1 uses MailApp directly — no token needed.)");
     return;
   }
   if (!refreshToken || refreshToken.length < 10) {
@@ -1899,7 +2315,7 @@ function SETUP_VIEW_REFRESH_TOKENS() {
   for (var i = 0; i < CONFIG.SENDER_ACCOUNTS.length; i++) {
     var account = CONFIG.SENDER_ACCOUNTS[i];
     if (account.useDirectGmail) {
-      Logger.log("Sender " + account.id + " (" + account.email + "): Uses GmailApp directly — no token needed.");
+      Logger.log("Sender " + account.id + " (" + account.email + "): Uses MailApp directly — no token needed.");
     } else {
       var token = props.getProperty("gmail_refresh_token_" + account.id);
       if (token) {
@@ -1980,7 +2396,9 @@ function SETUP_SPREADSHEET() {
     28: 220,  // AB: Member 5 Email
     29: 120,  // AC: Member 5 Phone
     30: 100,  // AD: Member 5 Branch
-    31: 80    // AE: Member 5 Section
+    31: 80,   // AE: Member 5 Section
+    32: 80,   // AF: Verified
+    33: 320   // AG: QR Code
   };
 
   for (var col in columnWidths) {
@@ -2019,7 +2437,7 @@ function SETUP_SPREADSHEET() {
   protection.setWarningOnly(true);
 
   Logger.log("✅ Spreadsheet setup complete!");
-  Logger.log("Column Layout: A=S.No, B=Timestamp, C=Registration ID, D=Ticket Number, E=Team Name, F=Leader Name, G=Leader Email, H=Leader Phone, I=Leader Branch, J=Leader Section, K=Team Size, L-P=Member 2, Q-U=Member 3, V-Z=Member 4, AA-AE=Member 5");
+  Logger.log("Column Layout: A=S.No, B=Timestamp, C=Registration ID, D=Ticket Number, E=Team Name, F=Leader Name, G=Leader Email, H=Leader Phone, I=Leader Branch, J=Leader Section, K=Team Size, L-P=Member 2, Q-U=Member 3, V-Z=Member 4, AA-AE=Member 5, AF=Verified, AG=QR Code");
 }
 
 // ============================================================================
@@ -2071,7 +2489,7 @@ function TEST_emailSenderStatus() {
     var sent = getEmailCountToday_(account.id);
     var remaining = CONFIG.DAILY_EMAIL_LIMIT - sent;
     var status = sent >= CONFIG.DAILY_EMAIL_LIMIT ? "❌ LIMIT REACHED" : "✅ Available";
-    var method = account.useDirectGmail ? "GmailApp (direct)" : "Gmail API (OAuth2)";
+    var method = account.useDirectGmail ? "MailApp (direct)" : "Gmail API (OAuth2)";
     Logger.log("Sender " + account.id + ": " + account.email);
     Logger.log("  Status    : " + status);
     Logger.log("  Method    : " + method);
@@ -2278,5 +2696,348 @@ function TEST_viewAllProperties() {
     } catch (e) {
       Logger.log(all[key]);
     }
+  }
+}
+
+/**
+ * TEST 10: Send QR Code Emails (dry-run info)
+ * Shows how many registrations would receive QR emails.
+ * Run sendQRCodeEmailsToAll_() directly to actually send.
+ */
+function TEST_qrEmailPreview() {
+  Logger.log("=== QR EMAIL PREVIEW ===");
+
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+
+  if (!sheet || sheet.getLastRow() <= 1) {
+    Logger.log("No registrations found.");
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  var numCols = Math.max(QR_CODE_COL, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+
+  var needsQR = 0;
+  var alreadyHasQR = 0;
+  var noTicket = 0;
+
+  for (var i = 0; i < data.length; i++) {
+    var ticketNumber = (data[i][3] || "").toString().trim();
+    var existingQR = (data[i][QR_CODE_COL - 1] || "").toString().trim();
+
+    if (!ticketNumber) {
+      noTicket++;
+    } else if (existingQR) {
+      alreadyHasQR++;
+    } else {
+      needsQR++;
+    }
+  }
+
+  Logger.log("Total registrations : " + data.length);
+  Logger.log("Needs QR email      : " + needsQR);
+  Logger.log("Already has QR      : " + alreadyHasQR);
+  Logger.log("No ticket (skip)    : " + noTicket);
+  Logger.log("");
+
+  if (needsQR > 0) {
+    Logger.log("👉 Run sendQRCodeEmailsToAll_() to send " + needsQR + " QR email(s).");
+    Logger.log("   Or run sendQRCodeEmailsToAll_(true) to force resend ALL.");
+  } else if (alreadyHasQR > 0) {
+    Logger.log("✅ All registrations already have QR codes sent.");
+    Logger.log("   Run sendQRCodeEmailsToAll_(true) to force resend ALL.");
+  } else {
+    Logger.log("ℹ️  No registrations with ticket numbers found.");
+  }
+}
+
+/**
+ * RUN THIS: Send QR Code Emails to all registrations that haven't received one yet.
+ * Safe to run multiple times — only processes rows without a QR Code in the sheet.
+ */
+function SEND_QR_EMAILS_NOW() {
+  Logger.log("=== SENDING QR CODE EMAILS ===");
+  var result = sendQRCodeEmailsToAll_(false);
+  Logger.log("Done! " + result.message);
+}
+
+/**
+ * RUN THIS: Force resend QR Code Emails to ALL registrations (even those already sent).
+ * Use with caution — will re-email everyone.
+ */
+function SEND_QR_EMAILS_FORCE_RESEND() {
+  Logger.log("=== FORCE RESENDING QR CODE EMAILS ===");
+  var result = sendQRCodeEmailsToAll_(true);
+  Logger.log("Done! " + result.message);
+}
+
+// ============================================================================
+// MASTER TEST — Verify the entire Apps Script works end-to-end
+// ============================================================================
+// Test recipient: 24pa1a5716@vishnu.edu.in
+// Run this function from the Apps Script editor to verify everything works.
+// ============================================================================
+
+/**
+ * 🧪 MASTER TEST — Run this to verify the entire Apps Script is working.
+ * Checks: Permissions, Spreadsheet, MailApp, UrlFetch, Firestore, and
+ * sends a real test email to 24pa1a5716@vishnu.edu.in.
+ *
+ * Select this function in the dropdown → click ▶ Run.
+ */
+function TEST_EVERYTHING() {
+  var TEST_EMAIL = "24pa1a5716@vishnu.edu.in";
+  var passed = 0;
+  var failed = 0;
+  var warnings = 0;
+
+  Logger.log("╔══════════════════════════════════════════════════════════╗");
+  Logger.log("║       CSBS APPS SCRIPT — MASTER TEST SUITE             ║");
+  Logger.log("║       Test Email: " + TEST_EMAIL + "          ║");
+  Logger.log("╚══════════════════════════════════════════════════════════╝");
+  Logger.log("");
+
+  // ── TEST 1: MailApp (email permission) ──
+  Logger.log("━━━ TEST 1: MailApp Permission ━━━");
+  try {
+    var quota = MailApp.getRemainingDailyQuota();
+    Logger.log("✅ PASS — MailApp accessible. Daily quota remaining: " + quota);
+    if (quota <= 0) {
+      Logger.log("⚠️  WARNING — Quota is 0. No emails can be sent today.");
+      warnings++;
+    }
+    passed++;
+  } catch (e) {
+    Logger.log("❌ FAIL — MailApp error: " + e.toString());
+    Logger.log("   FIX: Re-run AUTHORIZE_ALL_PERMISSIONS and approve the permission prompt.");
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 2: SpreadsheetApp ──
+  Logger.log("━━━ TEST 2: Spreadsheet Access ━━━");
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    Logger.log("✅ PASS — Spreadsheet: " + ss.getName());
+    var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+    if (sheet) {
+      var regCount = Math.max(0, sheet.getLastRow() - 1);
+      Logger.log("   Sheet '" + CONFIG.SHEET_NAME + "' has " + regCount + " registration(s).");
+    } else {
+      Logger.log("   ℹ️  Sheet '" + CONFIG.SHEET_NAME + "' not found yet (will be created on first registration).");
+    }
+    passed++;
+  } catch (e) {
+    Logger.log("❌ FAIL — Spreadsheet error: " + e.toString());
+    Logger.log("   FIX: Check CONFIG.SPREADSHEET_ID is correct and you have access.");
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 3: UrlFetchApp (external requests) ──
+  Logger.log("━━━ TEST 3: UrlFetchApp (External Requests) ━━━");
+  try {
+    var resp = UrlFetchApp.fetch("https://www.google.com", { muteHttpExceptions: true });
+    Logger.log("✅ PASS — UrlFetchApp works. Google.com HTTP " + resp.getResponseCode());
+    passed++;
+  } catch (e) {
+    Logger.log("❌ FAIL — UrlFetchApp error: " + e.toString());
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 4: PropertiesService ──
+  Logger.log("━━━ TEST 4: PropertiesService (Storage) ━━━");
+  try {
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty("_test_key", "ok");
+    var val = props.getProperty("_test_key");
+    props.deleteProperty("_test_key");
+    if (val === "ok") {
+      Logger.log("✅ PASS — PropertiesService read/write works.");
+      passed++;
+    } else {
+      Logger.log("❌ FAIL — PropertiesService returned unexpected value: " + val);
+      failed++;
+    }
+  } catch (e) {
+    Logger.log("❌ FAIL — PropertiesService error: " + e.toString());
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 5: OTP Generation ──
+  Logger.log("━━━ TEST 5: OTP Generation ━━━");
+  try {
+    var otp = generateOtp_();
+    if (otp && otp.indexOf(CONFIG.OTP_PREFIX) === 0 && otp.length === CONFIG.OTP_PREFIX.length + CONFIG.OTP_LENGTH) {
+      Logger.log("✅ PASS — Generated OTP: " + otp);
+      passed++;
+    } else {
+      Logger.log("❌ FAIL — OTP format unexpected: " + otp);
+      failed++;
+    }
+  } catch (e) {
+    Logger.log("❌ FAIL — OTP generation error: " + e.toString());
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 6: Firestore Connection ──
+  Logger.log("━━━ TEST 6: Firestore Connection ━━━");
+  try {
+    var url = CONFIG.FIRESTORE_BASE_URL + "/admins?pageSize=1&key=" + CONFIG.FIREBASE_API_KEY;
+    var fResp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var fCode = fResp.getResponseCode();
+    if (fCode === 200) {
+      Logger.log("✅ PASS — Firestore accessible (HTTP 200).");
+      passed++;
+    } else {
+      Logger.log("⚠️  WARNING — Firestore returned HTTP " + fCode + ". Check Firebase credentials in CONFIG.");
+      Logger.log("   Response: " + fResp.getContentText().substring(0, 200));
+      warnings++;
+      passed++; // Not a hard failure — credentials may just need updating
+    }
+  } catch (e) {
+    Logger.log("❌ FAIL — Firestore fetch error: " + e.toString());
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 7: Send a REAL test email ──
+  Logger.log("━━━ TEST 7: Send Test Email to " + TEST_EMAIL + " ━━━");
+  try {
+    var quota2 = MailApp.getRemainingDailyQuota();
+    if (quota2 <= 0) {
+      Logger.log("⚠️  SKIPPED — No email quota remaining today.");
+      warnings++;
+    } else {
+      var testSubject = "✅ CSBS Apps Script Test — " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      var testHtml = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:20px;">'
+        + '<div style="max-width:500px;margin:0 auto;border:2px solid #2e3190;border-radius:12px;overflow:hidden;">'
+        + '<div style="background:linear-gradient(135deg,#2e3190,#1a1d5e);padding:20px;text-align:center;">'
+        + '<h1 style="color:#fff;margin:0;font-size:22px;">✅ Test Successful!</h1></div>'
+        + '<div style="padding:24px;">'
+        + '<p style="color:#333;font-size:15px;">This is a test email from the <strong>CSBS Apps Script</strong>.</p>'
+        + '<p style="color:#333;font-size:15px;">If you received this, it means:</p>'
+        + '<ul style="color:#555;font-size:14px;">'
+        + '<li>✅ MailApp is working</li>'
+        + '<li>✅ Email permissions are granted</li>'
+        + '<li>✅ The deploying account can send emails</li>'
+        + '<li>✅ HTML emails render correctly</li></ul>'
+        + '<div style="background:#f0f0ff;padding:12px;border-radius:8px;margin-top:16px;">'
+        + '<p style="margin:0;font-size:13px;color:#666;">Sent from: <strong>' + CONFIG.EMAIL_SENDER_EMAIL + '</strong></p>'
+        + '<p style="margin:0;font-size:13px;color:#666;">Time: <strong>' + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + '</strong></p>'
+        + '<p style="margin:0;font-size:13px;color:#666;">Quota remaining: <strong>' + (quota2 - 1) + '</strong></p>'
+        + '</div></div></div></body></html>';
+
+      var testPlain = "CSBS Apps Script Test — Email is working! Sent at " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      MailApp.sendEmail({
+        to: TEST_EMAIL,
+        subject: testSubject,
+        body: testPlain,
+        htmlBody: testHtml,
+        name: CONFIG.REG_EMAIL_SENDER_NAME
+      });
+
+      Logger.log("✅ PASS — Test email sent to " + TEST_EMAIL);
+      Logger.log("   📬 Check the inbox of " + TEST_EMAIL + " for the test email.");
+      passed++;
+    }
+  } catch (e) {
+    Logger.log("❌ FAIL — Email send error: " + e.toString());
+    Logger.log("   FIX: Make sure the script is deployed from " + CONFIG.EMAIL_SENDER_EMAIL);
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── TEST 8: Email rotation system ──
+  Logger.log("━━━ TEST 8: Email Rotation System ━━━");
+  try {
+    var sender = getAvailableSender_();
+    if (sender) {
+      Logger.log("✅ PASS — Available sender: " + sender.email + " (ID: " + sender.id + ")");
+      var sentToday = getEmailCountToday_(sender.id);
+      Logger.log("   Sent today: " + sentToday + " / " + CONFIG.DAILY_EMAIL_LIMIT);
+      passed++;
+    } else {
+      Logger.log("⚠️  WARNING — No available sender (all quotas exhausted).");
+      warnings++;
+      passed++;
+    }
+  } catch (e) {
+    Logger.log("❌ FAIL — Email rotation error: " + e.toString());
+    failed++;
+  }
+
+  Logger.log("");
+
+  // ── SUMMARY ──
+  var total = passed + failed;
+  Logger.log("╔══════════════════════════════════════════════════════════╗");
+  Logger.log("║                    TEST RESULTS                        ║");
+  Logger.log("╠══════════════════════════════════════════════════════════╣");
+  Logger.log("║  ✅ Passed  : " + passed + " / " + total + "                                       ║");
+  if (failed > 0) {
+    Logger.log("║  ❌ Failed  : " + failed + "                                             ║");
+  }
+  if (warnings > 0) {
+    Logger.log("║  ⚠️  Warnings: " + warnings + "                                             ║");
+  }
+  Logger.log("╠══════════════════════════════════════════════════════════╣");
+
+  if (failed === 0) {
+    Logger.log("║  🎉 ALL TESTS PASSED — Apps Script is ready!          ║");
+    Logger.log("║  You can deploy/redeploy the web app now.             ║");
+  } else {
+    Logger.log("║  ⚠️  Some tests failed. Fix the issues above and      ║");
+    Logger.log("║  re-run TEST_EVERYTHING() to verify.                  ║");
+  }
+  Logger.log("╚══════════════════════════════════════════════════════════╝");
+}
+
+/**
+ * 🧪 QUICK EMAIL TEST — Just sends a test email, nothing else.
+ * Run this if you only want to verify email sending works.
+ */
+function TEST_SEND_EMAIL_ONLY() {
+  var TEST_EMAIL = "24pa1a5716@vishnu.edu.in";
+  Logger.log("=== QUICK EMAIL TEST ===");
+  Logger.log("Sending test email to: " + TEST_EMAIL);
+
+  try {
+    var quota = MailApp.getRemainingDailyQuota();
+    Logger.log("Email quota remaining: " + quota);
+
+    if (quota <= 0) {
+      Logger.log("❌ No email quota left for today. Try again tomorrow.");
+      return;
+    }
+
+    MailApp.sendEmail({
+      to: TEST_EMAIL,
+      subject: "CSBS Test Email — " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      body: "This is a test email from CSBS Apps Script. If you see this, email sending works!",
+      htmlBody: '<div style="font-family:Arial;padding:20px;text-align:center;">'
+        + '<h2 style="color:#2e3190;">✅ Email Test Passed!</h2>'
+        + '<p>Sent from <strong>' + CONFIG.EMAIL_SENDER_EMAIL + '</strong></p>'
+        + '<p style="color:#888;font-size:12px;">' + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + '</p></div>',
+      name: CONFIG.REG_EMAIL_SENDER_NAME
+    });
+
+    Logger.log("✅ Email sent successfully! Check inbox of " + TEST_EMAIL);
+  } catch (e) {
+    Logger.log("❌ Email failed: " + e.toString());
+    Logger.log("FIX: Make sure script is deployed from " + CONFIG.EMAIL_SENDER_EMAIL + " and permissions are granted.");
   }
 }

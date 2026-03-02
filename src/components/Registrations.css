@@ -121,27 +121,72 @@
   color: #15803d;
 }
 
+.reg-qr-sent-count {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+/* --- QR Sent / Pending Badges (inside verify strip) --- */
+.reg-qr-sent-badge,
+.reg-qr-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reg-qr-sent-badge {
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  color: #5b21b6;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: 0 1px 4px rgba(139, 92, 246, 0.1);
+}
+
+.reg-qr-sent-badge svg {
+  stroke: #7c3aed;
+}
+
+.reg-qr-pending-badge {
+  background: linear-gradient(135deg, #fefce8, #fef9c3);
+  color: #a16207;
+  border: 1px solid rgba(202, 138, 4, 0.2);
+  box-shadow: 0 1px 4px rgba(202, 138, 4, 0.08);
+}
+
+.reg-qr-pending-badge svg {
+  stroke: #ca8a04;
+}
+
 /* --- Grid --- */
 .reg-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
   gap: 1.5rem;
 }
 
 /* --- Card --- */
 .reg-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: 6px 6px 0px rgba(183, 28, 28, 0.45),
               0 4px 24px rgba(46, 49, 144, 0.08);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
-.reg-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 8px 10px 0px rgba(183, 28, 28, 0.55),
-              0 8px 32px rgba(46, 49, 144, 0.12);
+@media (min-width: 769px) {
+  .reg-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 8px 12px 0px rgba(183, 28, 28, 0.55),
+                0 12px 40px rgba(46, 49, 144, 0.14);
+  }
 }
 
 /* --- Card Top --- */
@@ -260,11 +305,12 @@
   padding: 0.6rem 0.75rem;
   background: #f8f9fa;
   border-radius: 10px;
-  transition: background 0.15s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .reg-member-row:hover {
-  background: #f0f1f8;
+  background: #eef0f9;
+  transform: translateX(4px);
 }
 
 .reg-member-num {
@@ -422,33 +468,209 @@
 }
 
 /* --- Responsive --- */
-@media (max-width: 480px) {
+
+/* Tablet */
+@media (max-width: 768px) {
+  .reg-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
   .reg-grid {
     grid-template-columns: 1fr;
+    gap: 1.2rem;
   }
 
-  .reg-card-top {
-    padding: 1.2rem 1.2rem 0.8rem;
+  .reg-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .reg-card-members {
-    padding: 0.8rem 1.2rem 1.2rem;
-  }
-
-  .reg-card-divider {
-    margin: 0 1.2rem;
-  }
-
-  .reg-member-detail {
-    max-width: 180px;
+  .reg-member-details {
+    gap: 0.2rem 0.6rem;
   }
 
   .reg-meta {
-    gap: 0.5rem 0.8rem;
+    gap: 0.5rem 0.9rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .reg-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .reg-section-title {
+    font-size: 1.3rem;
+    letter-spacing: 2px;
+  }
+
+  .reg-card-top {
+    padding: 1rem 1rem 0.7rem;
+  }
+
+  .reg-card-members {
+    padding: 0.7rem 1rem 1rem;
+  }
+
+  .reg-card-divider {
+    margin: 0 1rem;
+  }
+
+  .reg-team-name {
+    font-size: 1.1rem;
+    letter-spacing: 1.5px;
+  }
+
+  .reg-member-detail {
+    max-width: 160px;
+    font-size: 0.68rem;
+  }
+
+  .reg-member-name {
+    font-size: 0.8rem;
+  }
+
+  .reg-member-num {
+    width: 22px;
+    height: 22px;
+    font-size: 0.65rem;
+  }
+
+  .reg-meta {
+    gap: 0.4rem 0.6rem;
+  }
+
+  .reg-meta-label {
+    font-size: 0.6rem;
+  }
+
+  .reg-meta-value {
+    font-size: 0.72rem;
+  }
+
+  .reg-id-value,
+  .reg-ticket-value {
+    font-size: 0.66rem;
+    word-break: break-all;
   }
 
   .reg-header-badges {
     flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .reg-count-badge,
+  .reg-verified-count,
+  .reg-qr-sent-count {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .reg-back-btn {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .reg-refresh-btn {
+    font-size: 0.72rem;
+    padding: 0.35rem 0.7rem;
+  }
+
+  /* Verification strip mobile */
+  .reg-verify-strip {
+    padding: 0.45rem 1rem;
+    gap: 6px;
+  }
+
+  .reg-verify-text {
+    font-size: 0.64rem;
+  }
+
+  .reg-qr-sent-badge,
+  .reg-qr-pending-badge {
+    font-size: 0.58rem;
+    padding: 0.15rem 0.45rem;
+    gap: 3px;
+  }
+
+  .reg-qr-sent-badge svg,
+  .reg-qr-pending-badge svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .reg-verify-toggle {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.64rem;
+  }
+
+  .reg-verify-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .reg-member-row {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .reg-action-btn {
+    font-size: 0.72rem;
+    padding: 0.55rem 0.6rem;
+  }
+
+  .reg-card-qr-result {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.75rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .reg-card-top {
+    padding: 0.85rem 0.8rem 0.6rem;
+  }
+
+  .reg-card-members {
+    padding: 0.6rem 0.8rem 0.85rem;
+  }
+
+  .reg-card-divider {
+    margin: 0 0.8rem;
+  }
+
+  .reg-team-name {
+    font-size: 1rem;
+  }
+
+  .reg-member-detail {
+    max-width: 130px;
+  }
+
+  .reg-verify-strip {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+    gap: 4px;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .reg-qr-sent-badge,
+  .reg-qr-pending-badge {
+    font-size: 0.55rem;
+    padding: 0.12rem 0.4rem;
+  }
+
+  .reg-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reg-toolbar-right {
+    justify-content: flex-end;
   }
 }
 
@@ -546,4 +768,72 @@
 .btn-unverify:hover:not(:disabled) {
   background: rgba(185, 28, 28, 0.08);
   border-color: #f87171;
+}
+
+/* ================================================
+   Card Actions Footer
+   ================================================ */
+
+.reg-card-actions {
+  display: flex;
+  border-top: 1px solid #e5e7eb;
+}
+
+.reg-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  color: #6b7280;
+}
+
+.reg-action-btn:hover:not(:disabled) {
+  background: rgba(46, 49, 144, 0.06);
+  color: #2e3190;
+}
+
+.reg-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reg-action-qr svg {
+  flex-shrink: 0;
+}
+
+.reg-action-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(46, 49, 144, 0.2);
+  border-top-color: #2e3190;
+  border-radius: 50%;
+  animation: reg-spin 0.7s linear infinite;
+}
+
+/* Per-card QR send result banner */
+.reg-card-qr-result {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.reg-card-qr-result.success {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.reg-card-qr-result.error {
+  background: #fef2f2;
+  color: #991b1b;
 }

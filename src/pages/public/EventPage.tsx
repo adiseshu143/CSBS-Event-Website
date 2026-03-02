@@ -13,7 +13,7 @@ import {
   type ChangeEvent,
 } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { submitFormToGAS, prepareFormData } from '../../services';
+import { submitFormToGAS, prepareFormData, fetchRegisteredSlots, getRegistrationStatus } from '../../services';
 import { getEventById } from '../../services/eventService';
 import type { EventConfig } from '../../types/event';
 import './EventPage.css';
@@ -89,12 +89,6 @@ const isValidEmail = (email: string): boolean =>
 const isValidPhone = (phone: string): boolean =>
   /^\d{10}$/.test(phone.replace(/[\s\-()]/g, ''));
 
-const getGASUrl = (): string => {
-  const url = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL;
-  if (!url) throw new Error('Google Apps Script URL not configured');
-  return url;
-};
-
 const buildEmptyForm = (): FormData => ({
   leaderName: '',
   email: '',
@@ -115,6 +109,10 @@ export default function EventPage() {
   const [notFound, setNotFound] = useState(false);
   const [registeredCount, setRegisteredCount] = useState(0);
   const [loadingCount, setLoadingCount] = useState(true);
+
+  /* registration status (admin open/close control) */
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [regStatusLoading, setRegStatusLoading] = useState(true);
 
   /* form state */
   const [formData, setFormData] = useState<FormData | null>(null);
@@ -147,38 +145,42 @@ export default function EventPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  /* ── Fetch total registrations for slot count ──────── */
+  /* ── Fetch registered slot count (lightweight GET_SLOTS) ── */
   useEffect(() => {
     if (!event) return;
+    let cancelled = false;
     const fetchCount = async () => {
       try {
         setLoadingCount(true);
-        const url = getGASUrl();
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'GET_REGISTRATIONS' }),
-          redirect: 'follow',
-        });
-        const text = await response.text();
-        const result = JSON.parse(text);
-        if (result.status === 'success' && Array.isArray(result.data)) {
-          // Sum team sizes to count total members, not just registrations
-          const totalMembers = result.data.reduce(
-            (sum: number, reg: { teamSize?: number }) =>
-              sum + (reg.teamSize || 1),
-            0,
-          );
-          setRegisteredCount(totalMembers);
-        }
+        const count = await fetchRegisteredSlots();
+        if (!cancelled) setRegisteredCount(count);
       } catch (err) {
         console.error('Failed to fetch registration count:', err);
       } finally {
-        setLoadingCount(false);
+        if (!cancelled) setLoadingCount(false);
       }
     };
     fetchCount();
+    return () => { cancelled = true; };
   }, [event]);
+
+  /* ── Check registration open/closed status ──────────── */
+  useEffect(() => {
+    let cancelled = false;
+    const checkStatus = async () => {
+      try {
+        const status = await getRegistrationStatus();
+        if (!cancelled) setRegistrationOpen(status.registrationOpen);
+      } catch {
+        // Default to open if status check fails
+        if (!cancelled) setRegistrationOpen(true);
+      } finally {
+        if (!cancelled) setRegStatusLoading(false);
+      }
+    };
+    checkStatus();
+    return () => { cancelled = true; };
+  }, []);
 
   /* ── Change handlers ───────────────────────────────── */
   const handleChange = useCallback(
@@ -451,7 +453,8 @@ export default function EventPage() {
 
   /* ===== Derived values ===== */
   const remainingSlots = Math.max(0, event.totalSlots - registeredCount);
-  const isClosed = remainingSlots <= 0;
+  const isSlotsFull = remainingSlots <= 0;
+  const isClosed = isSlotsFull || (!regStatusLoading && !registrationOpen);
   const slotsPercent = Math.min(
     100,
     (registeredCount / event.totalSlots) * 100,
@@ -466,7 +469,7 @@ export default function EventPage() {
           className={`ep-badge ${isClosed ? 'ep-badge-closed' : 'ep-badge-open'}`}
         >
           <span className="ep-badge-dot" />
-          {isClosed ? 'Registrations Closed' : 'Registrations Open'}
+          {regStatusLoading ? 'Checking...' : isClosed ? 'Registrations Closed' : 'Registrations Open'}
         </div>
         <h1 className="ep-title">{event.eventName}</h1>
         <p className="ep-description">{event.eventDescription}</p>
@@ -561,8 +564,9 @@ export default function EventPage() {
           <div className="ep-closed-msg">
             <span>🚫</span>
             <p>
-              Registration for this event is now <strong>closed</strong>. All
-              slots have been filled.
+              {isSlotsFull
+                ? <>Registration for this event is now <strong>closed</strong>. All slots have been filled.</>
+                : <>Registrations are currently <strong>closed</strong> by the organizers. Please check back later.</>}
             </p>
           </div>
         ) : (

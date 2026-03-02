@@ -151,8 +151,13 @@
 }
 
 .evt-mgmt-submit:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(46, 49, 144, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 49, 144, 0.35);
+}
+
+.evt-mgmt-submit:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(46, 49, 144, 0.2);
 }
 
 .evt-mgmt-cancel {
@@ -231,17 +236,18 @@
 
 .evt-mgmt-card {
   background: var(--card-bg);
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   box-shadow: 6px 6px 0px rgba(183, 28, 28, 0.45),
     0 4px 15px rgba(46, 49, 144, 0.08);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .evt-mgmt-card:hover {
   transform: translateY(-3px);
   box-shadow: 6px 10px 0px rgba(183, 28, 28, 0.55),
-    0 8px 25px rgba(46, 49, 144, 0.12);
+    0 8px 25px rgba(46, 49, 144, 0.15);
 }
 
 .evt-mgmt-card-inactive {
@@ -316,7 +322,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-secondary);
 }
 
@@ -346,14 +352,58 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
+
+/* Tablet */
+@media (max-width: 768px) {
+  .evt-mgmt {
+    max-width: 100%;
+  }
+
+  .evt-mgmt-form-card {
+    padding: 1.5rem;
+  }
+
+  .evt-mgmt-form-title {
+    font-size: 1.3rem;
+  }
+
   .evt-mgmt-row {
     grid-template-columns: 1fr;
+  }
+
+  .evt-mgmt-card-top {
+    padding: 1.2rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .evt-mgmt-form-card {
+    padding: 1.2rem;
+    border-radius: var(--radius-md);
+  }
+
+  .evt-mgmt-form-title {
+    font-size: 1.15rem;
+  }
+
+  .evt-mgmt-back {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .evt-mgmt-card-name {
+    font-size: 1.15rem;
+  }
+
+  .evt-mgmt-card-desc {
+    font-size: 0.78rem;
   }
 
   .evt-mgmt-card-meta {
     flex-wrap: wrap;
     gap: 0.5rem;
+    font-size: 0.72rem;
   }
 
   .evt-mgmt-card-actions {
@@ -362,6 +412,8 @@
 
   .evt-mgmt-action-btn {
     flex: 1 0 45%;
+    font-size: 0.7rem;
+    padding: 0.55rem;
   }
 
   .evt-mgmt-action-btn:not(:last-child) {
@@ -370,5 +422,41 @@
 
   .evt-mgmt-action-btn:nth-child(-n + 2) {
     border-bottom: 1px solid var(--border);
+  }
+
+  .evt-mgmt-form-actions {
+    flex-direction: column;
+  }
+
+  .evt-mgmt-submit,
+  .evt-mgmt-cancel {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .evt-mgmt-list-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .evt-mgmt-empty {
+    padding: 2rem 1rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .evt-mgmt-card-top {
+    padding: 1rem 0.85rem;
+  }
+
+  .evt-mgmt-action-btn {
+    flex: 1 0 100%;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .evt-mgmt-action-btn:last-child {
+    border-bottom: none;
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { setVerificationStatus } from '../services/googleAppsScript';
+import { setVerificationStatus, sendQREmailSingle } from '../services/googleAppsScript';
 import './Registrations.css';
 
 /* ===== Types ===== */
@@ -23,6 +23,8 @@ interface Registration {
   members: Member[];
   registeredBy: string;
   isVerified: boolean;
+  qrCodeUrl?: string;
+  qrEmailSent?: boolean;
 }
 
 interface RegistrationsProps {
@@ -78,6 +80,8 @@ export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsP
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [togglingTicket, setTogglingTicket] = useState<string | null>(null);
+  const [qrSendingTicket, setQrSendingTicket] = useState<string | null>(null);
+  const [qrSendResult, setQrSendResult] = useState<{ ticket: string; type: 'success' | 'error'; msg: string } | null>(null);
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
@@ -203,6 +207,32 @@ export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsP
     }
   };
 
+  const handleSendQRSingle = async (ticket: string) => {
+    setQrSendingTicket(ticket);
+    setQrSendResult(null);
+    try {
+      const res = await sendQREmailSingle(ticket, true);
+      if (res.status === 'success') {
+        setQrSendResult({ ticket, type: 'success', msg: res.message });
+        // Optimistic update: mark QR as sent
+        setRegistrations((prev) =>
+          prev.map((r) =>
+            r.ticketNumber === ticket
+              ? { ...r, qrCodeUrl: 'sent', qrEmailSent: true }
+              : r,
+          ),
+        );
+      } else {
+        setQrSendResult({ ticket, type: 'error', msg: res.message });
+      }
+    } catch (err) {
+      setQrSendResult({ ticket, type: 'error', msg: err instanceof Error ? err.message : 'Failed to send.' });
+    } finally {
+      setQrSendingTicket(null);
+      setTimeout(() => setQrSendResult(null), 5000);
+    }
+  };
+
   return (
     <div className="reg-section">
       {headerBar}
@@ -213,6 +243,9 @@ export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsP
           <span className="reg-count-badge">{registrations.length} Teams</span>
           <span className="reg-count-badge reg-verified-count">
             ✅ {registrations.filter((r) => r.isVerified).length} Verified
+          </span>
+          <span className="reg-count-badge reg-qr-sent-count">
+            📧 {registrations.filter((r) => r.qrEmailSent).length} QR Sent
           </span>
         </div>
       </div>
@@ -240,6 +273,26 @@ export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsP
               <span className="reg-verify-text">
                 {reg.isVerified ? 'Verified' : 'Not Verified'}
               </span>
+
+              {/* QR Sent indicator */}
+              {reg.qrEmailSent ? (
+                <span className="reg-qr-sent-badge" title="QR code email sent to all team members">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  QR Sent
+                </span>
+              ) : (
+                <span className="reg-qr-pending-badge" title="QR code email not yet sent">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  QR Pending
+                </span>
+              )}
+
               <button
                 className={`reg-verify-toggle ${reg.isVerified ? 'btn-unverify' : 'btn-verify'}`}
                 onClick={() => handleToggleVerification(reg.ticketNumber, reg.isVerified)}
@@ -327,6 +380,35 @@ export default function Registrations({ onBack, refreshKey = 0 }: RegistrationsP
                 ))}
               </div>
             </div>
+
+            {/* --- Card Actions Footer --- */}
+            <div className="reg-card-actions">
+              <button
+                className="reg-action-btn reg-action-qr"
+                onClick={() => handleSendQRSingle(reg.ticketNumber)}
+                disabled={qrSendingTicket === reg.ticketNumber}
+                title="Send QR email to all members of this team"
+              >
+                {qrSendingTicket === reg.ticketNumber ? (
+                  <><span className="reg-action-spinner" /> Sending...</>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="16" x="2" y="4" rx="2"/>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
+                    Send QR Email
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Per-card QR send result */}
+            {qrSendResult && qrSendResult.ticket === reg.ticketNumber && (
+              <div className={`reg-card-qr-result ${qrSendResult.type}`}>
+                {qrSendResult.type === 'success' ? '✅' : '❌'} {qrSendResult.msg}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -257,3 +257,70 @@ export const setVerificationStatus = async (
   const text = await response.text();
   return JSON.parse(text) as VerifyTicketResponse;
 };
+
+// ============================================================================
+// QR Code Email Service
+// ============================================================================
+
+export interface SendQREmailsResponse {
+  status: string;
+  success: boolean;
+  message: string;
+  data: {
+    sent: number;
+    skipped: number;
+    failed: number;
+    total: number;
+    message: string;
+  };
+}
+
+/**
+ * Trigger the backend to generate QR codes and email them to all registrations.
+ * Only processes rows that haven't already received a QR email.
+ *
+ * @param forceResend  If true, resend to ALL registrations (even those already sent)
+ */
+export const sendQREmails = async (
+  forceResend = false,
+): Promise<SendQREmailsResponse> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'SEND_QR_EMAILS', forceResend }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  return JSON.parse(text) as SendQREmailsResponse;
+};
+
+export interface SendQREmailSingleResponse {
+  status: string;
+  message: string;
+  data?: {
+    ticketNumber?: string;
+    teamName?: string;
+    sent?: number;
+    total?: number;
+    alreadySent?: boolean;
+  };
+}
+
+/**
+ * Send QR email to a single team by ticket number.
+ */
+export const sendQREmailSingle = async (
+  ticketNumber: string,
+  forceResend = false,
+): Promise<SendQREmailSingleResponse> => {
+  const url = getGASUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'SEND_QR_EMAIL_SINGLE', ticketNumber, forceResend }),
+    redirect: 'follow',
+  });
+  const text = await response.text();
+  return JSON.parse(text) as SendQREmailSingleResponse;
+};
