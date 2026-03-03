@@ -5,9 +5,9 @@
 // Single script serving:
 //   1. Event Registration  → REGISTER, GET_SLOTS
 //   2. Admin OTP Auth      → SEND_OTP, VERIFY_OTP
-//   3. Email Service        → Single sender (24pa1a5723@vishnu.edu.in)
+//   3. Email Service        → Single sender (24pa1a5721@vishnu.edu.in)
 //
-// ⚠️  DEPLOY THIS SCRIPT FROM the 24pa1a5723@vishnu.edu.in Google account.
+// ⚠️  DEPLOY THIS SCRIPT FROM the 24pa1a5721@vishnu.edu.in Google account.
 // ============================================================================
 
 // ========================== CONFIGURATION ==================================
@@ -38,7 +38,7 @@ var CONFIG = {
 
   // ---------- Email ----------
   // All emails are sent from this single account (must be the deploying account)
-  EMAIL_SENDER_EMAIL: "24pa1a5723@vishnu.edu.in",
+  EMAIL_SENDER_EMAIL: "24pa1a5721@vishnu.edu.in",
   EMAIL_SENDER_NAME: "CSBS Admin Portal",
   EMAIL_SUBJECT: "Your CSBS Admin Access Code",
 
@@ -53,7 +53,7 @@ var CONFIG = {
   // ==========================================================================
   // SINGLE SENDER — All emails sent from the deploying Google account
   // ==========================================================================
-  // IMPORTANT: Deploy this Apps Script from the 24pa1a5723@vishnu.edu.in
+  // IMPORTANT: Deploy this Apps Script from the 24pa1a5721@vishnu.edu.in
   // Google account. All OTP codes, registration confirmations, and QR emails
   // will be sent from that account via MailApp.sendEmail().
   // ==========================================================================
@@ -65,7 +65,7 @@ var CONFIG = {
   GMAIL_API_CLIENT_SECRET: "",
 
   SENDER_ACCOUNTS: [
-    { id: 1, email: "24pa1a5723@vishnu.edu.in", name: "CSBS Tech Fest 2026", useDirectGmail: true }
+    { id: 1, email: "24pa1a5721@vishnu.edu.in", name: "CSBS Tech Fest 2026", useDirectGmail: true }
   ]
 };
 
