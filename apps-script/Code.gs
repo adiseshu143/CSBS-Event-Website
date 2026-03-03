@@ -1349,8 +1349,13 @@ function handleSendOtp_(body) {
     lock.releaseLock();
   }
 
-  // Send OTP email
-  sendOtpEmail_(email, otp, adminDoc.name || "Admin");
+  // Send OTP email — now properly reports failures
+  try {
+    sendOtpEmail_(email, otp, adminDoc.name || "Admin");
+  } catch (emailErr) {
+    Logger.log("OTP email send FAILED for " + email + ": " + emailErr.toString());
+    return buildResponse("error", "Failed to send access code email. Please try again or contact support. (" + emailErr.message + ")", null);
+  }
 
   // Reset failed attempts on successful OTP send
   resetFailedAttempts_(email);
@@ -1651,6 +1656,7 @@ function getAvailableSender_() {
  * @param {Object}   senderAccount Entry from CONFIG.SENDER_ACCOUNTS
  */
 function sendViaAccount_(toAddresses, subject, plainText, htmlBody, senderAccount) {
+  var failures = [];
   for (var i = 0; i < toAddresses.length; i++) {
     try {
       MailApp.sendEmail({
@@ -1660,10 +1666,16 @@ function sendViaAccount_(toAddresses, subject, plainText, htmlBody, senderAccoun
         htmlBody: htmlBody,
         name: senderAccount.name
       });
+      Logger.log("Email sent successfully to " + toAddresses[i] + " via sender " + senderAccount.id);
     } catch (sendErr) {
       Logger.log("Failed to email " + toAddresses[i] + ": " + sendErr.toString());
+      failures.push({ email: toAddresses[i], error: sendErr.toString() });
     }
   }
+  if (failures.length > 0 && failures.length === toAddresses.length) {
+    throw new Error("Failed to send email to all recipients: " + failures.map(function(f) { return f.error; }).join("; "));
+  }
+  return failures;
 }
 
 // ============================================================================
@@ -1809,12 +1821,14 @@ function sendEmailWithRotation_(toAddresses, subject, plainText, htmlBody) {
   var sender = getAvailableSender_();
 
   if (!sender) {
-    Logger.log("ERROR: All email quotas exhausted. Email NOT sent to: " + toAddresses.join(", "));
-    return;
+    var errMsg = "All email quotas exhausted. Email NOT sent to: " + toAddresses.join(", ");
+    Logger.log("ERROR: " + errMsg);
+    throw new Error(errMsg);
   }
 
   Logger.log("Using sender " + sender.id + " (" + sender.email + ") for " + toAddresses.length + " email(s). Daily count today: " + getEmailCountToday_(sender.id));
 
+  // This will throw if ALL emails fail
   sendViaAccount_(toAddresses, subject, plainText, htmlBody, sender);
 
   // Record all emails in this batch as sent from this account
