@@ -1664,7 +1664,8 @@ function sendViaAccount_(toAddresses, subject, plainText, htmlBody, senderAccoun
         subject: subject,
         body: plainText,
         htmlBody: htmlBody,
-        name: senderAccount.name
+        name: senderAccount.name,
+        replyTo: CONFIG.EMAIL_SENDER_EMAIL  // Replies go to 24pa1a5721@vishnu.edu.in
       });
       Logger.log("Email sent successfully to " + toAddresses[i] + " via sender " + senderAccount.id);
     } catch (sendErr) {
